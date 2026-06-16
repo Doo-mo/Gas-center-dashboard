@@ -1,39 +1,21 @@
 /* =========================================================================
    미음본부 가스연료기술센터 — 사업 현황 대시보드
-   - 엑셀 파일 업로드형 (브라우저에서만 읽음, 저장 안 함)
-   - 시트: 국가연구개발사업 / 수탁용역 / 시험인증
-   - 금액 지표(실적):
-       · 국가연구개발사업 = 당해년도 사업비 합계 (인건비+간접비)
-       · 수탁용역        = 총 인정실적(A+B)
-       · 시험인증        = 시험수수료(A)  (전부 극저온 팀)
-   - 숫자로 변환 불가한 값(미정/협약전/미승금/-/빈칸 등)은 모두 0원 처리
-   - 합계 행은 자동 제외 후 재합산
-   - 구분(기존/연장/신규/기획) 필터는 국가연구개발사업에만 적용
    ========================================================================= */
-
 (function () {
   "use strict";
 
-  // ---- 팀 정의 ----------------------------------------------------------
   const TEAMS = ["전산", "탄소", "극저온"];
   const TEAM_COLORS = { "전산": "#f59e0b", "탄소": "#10b981", "극저온": "#3b82f6" };
   const TEAM_BADGE = { "전산": "b-jeonsan", "탄소": "b-tanso", "극저온": "b-geo" };
 
-  // ---- 시트(사업 구분) 정의 ---------------------------------------------
   const SHEETS = ["국가연구개발사업", "수탁용역", "시험인증"];
-  const SHEET_COLORS = {
-    "국가연구개발사업": "#3b82f6",
-    "수탁용역": "#f59e0b",
-    "시험인증": "#10b981"
-  };
+  const SHEET_COLORS = { "국가연구개발사업": "#3b82f6", "수탁용역": "#f59e0b", "시험인증": "#10b981" };
 
-  // ---- 상태 -------------------------------------------------------------
   let RAW = { "국가연구개발사업": [], "수탁용역": [], "시험인증": [] };
   let currentGubun = "전체";
   let currentTab = "국가연구개발사업";
   const charts = {};
 
-  // ---- 유틸: 금액 파싱 (변환 불가 = 0) ----------------------------------
   function toNum(v) {
     if (v === null || v === undefined) return 0;
     if (typeof v === "number") return isFinite(v) ? v : 0;
@@ -47,10 +29,7 @@
     return neg ? -n : n;
   }
 
-  // ---- 유틸: 금액 포맷 ---------------------------------------------------
-  function fmt(n) {
-    return (Math.round(n) || 0).toLocaleString("ko-KR") + "원";
-  }
+  function fmt(n) { return (Math.round(n) || 0).toLocaleString("ko-KR") + "원"; }
   function fmtShort(n) {
     const v = Math.round(n) || 0;
     if (Math.abs(v) >= 100000000) return (v / 100000000).toFixed(1) + "억";
@@ -58,12 +37,8 @@
     return v.toLocaleString("ko-KR");
   }
 
-  // ---- 유틸: 텍스트 정규화 (헤더 매칭용) --------------------------------
-  function norm(s) {
-    return String(s == null ? "" : s).replace(/\s+/g, "").toLowerCase();
-  }
+  function norm(s) { return String(s == null ? "" : s).replace(/\s+/g, "").toLowerCase(); }
 
-  // ---- 헤더 행 자동 탐지 -------------------------------------------------
   function findHeaderRow(rows, keywords) {
     const keys = keywords.map(norm);
     let best = -1, bestScore = 0;
@@ -77,7 +52,6 @@
     return bestScore >= 2 ? best : (best >= 0 ? best : 0);
   }
 
-  // ---- 헤더에서 컬럼 인덱스 찾기 ----------------------------------------
   function colIndex(headerRow, candidates) {
     const cells = headerRow.map(norm);
     for (const cand of candidates) {
@@ -93,20 +67,15 @@
     return -1;
   }
 
-  // ---- 합계 행 판별 -----------------------------------------------------
   function isTotalRow(rowJoined) {
     const s = norm(rowJoined);
     return s.includes("합계") || s.includes("총계") || s.includes("소계") || s === "계";
   }
 
-  // ======================================================================
-  //  시트별 파서
-  // ======================================================================
   function parseNRND(aoa) {
     const hKeywords = ["순번", "구분", "팀", "과제명", "주관기관", "역할", "당해년도", "사업비", "진행상태"];
     const hRow = findHeaderRow(aoa, hKeywords);
     const header = aoa[hRow] || [];
-
     const cGubun = colIndex(header, ["구분"]);
     const cTeam = colIndex(header, ["팀"]);
     const cMgmt = colIndex(header, ["관리번호"]);
@@ -115,7 +84,6 @@
     const cOrg = colIndex(header, ["주관기관명", "주관기관"]);
     const cRole = colIndex(header, ["역할"]);
     const cState = colIndex(header, ["진행상태"]);
-
     const sub = aoa[hRow + 1] || [];
     let cAmount = findAmountSumColumn(header, sub, "당해년도", "사업비");
 
@@ -128,7 +96,6 @@
       const title = cTitle >= 0 ? row[cTitle] : "";
       const team = normTeam(cTeam >= 0 ? row[cTeam] : "");
       if (!String(title || "").trim() && !team) continue;
-
       out.push({
         구분: String((cGubun >= 0 ? row[cGubun] : "") || "").trim(),
         팀: team,
@@ -150,7 +117,6 @@
     const hRow = findHeaderRow(aoa, hKeywords);
     const header = aoa[hRow] || [];
     const sub = aoa[hRow + 1] || [];
-
     const cItem = colIndex(header, ["시험/용역항목", "시험용역항목", "용역항목"]);
     const cName = colIndex(header, ["시험사료명용역계약명", "용역계약명", "시험사료명"]);
     const cPerson = colIndex(header, ["담당"]);
@@ -168,7 +134,6 @@
       if (isTotalRow(joined)) continue;
       const name = (cName >= 0 ? row[cName] : "") || (cItem >= 0 ? row[cItem] : "");
       if (!String(name || "").trim()) continue;
-
       out.push({
         팀: normTeam(cTeam >= 0 ? row[cTeam] : "전산"),
         시험용역항목: cItem >= 0 ? row[cItem] : "",
@@ -186,7 +151,6 @@
     const hKeywords = ["연번", "업체명", "용역기간", "시험", "담당", "총입금실적", "시험수수료", "재료비"];
     const hRow = findHeaderRow(aoa, hKeywords);
     const header = aoa[hRow] || [];
-
     const cNo = colIndex(header, ["연번"]);
     const cCompany = colIndex(header, ["업체명"]);
     const cPeriod = colIndex(header, ["용역기간"]);
@@ -205,7 +169,6 @@
       const company = (cCompany >= 0 ? row[cCompany] : "");
       const name = (cName >= 0 ? row[cName] : "") || (cItem >= 0 ? row[cItem] : "");
       if (!String(company || "").trim() && !String(name || "").trim()) continue;
-
       out.push({
         팀: "극저온",
         연번: cNo >= 0 ? row[cNo] : "",
@@ -259,9 +222,6 @@
     return "";
   }
 
-  // ======================================================================
-  //  엑셀 로드
-  // ======================================================================
   function handleFile(file) {
     clearError();
     const reader = new FileReader();
@@ -272,19 +232,15 @@
         const wanted = ["국가연구개발사업", "수탁용역", "시험인증"];
         const found = {};
         wb.SheetNames.forEach(n => { found[norm(n)] = n; });
-
         const missing = [];
         wanted.forEach(w => { if (!found[norm(w)]) missing.push(w); });
-
         function aoaOf(sheetName) {
           const ws = wb.Sheets[sheetName];
           return XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" });
         }
-
         RAW["국가연구개발사업"] = found[norm("국가연구개발사업")] ? parseNRND(aoaOf(found[norm("국가연구개발사업")])) : [];
         RAW["수탁용역"] = found[norm("수탁용역")] ? parseService(aoaOf(found[norm("수탁용역")])) : [];
         RAW["시험인증"] = found[norm("시험인증")] ? parseCert(aoaOf(found[norm("시험인증")])) : [];
-
         if (missing.length === wanted.length) {
           showError("필요한 시트를 찾지 못했습니다.\n엑셀에 다음 시트가 있는지 확인해주세요: 국가연구개발사업, 수탁용역, 시험인증\n\n현재 파일의 시트: " + wb.SheetNames.join(", "));
           return;
@@ -292,7 +248,6 @@
         if (missing.length) {
           showError("⚠️ 일부 시트를 찾지 못했습니다: " + missing.join(", ") + "\n나머지 시트로 대시보드를 표시합니다.");
         }
-
         document.getElementById("hint").style.display = "none";
         document.getElementById("dash").style.display = "block";
         document.getElementById("filterBox").style.display = "flex";
@@ -305,9 +260,6 @@
     reader.readAsArrayBuffer(file);
   }
 
-  // ======================================================================
-  //  집계 + 렌더
-  // ======================================================================
   function getFilteredNRND() {
     if (currentGubun === "전체") return RAW["국가연구개발사업"];
     return RAW["국가연구개발사업"].filter(d => norm(d.구분) === norm(currentGubun));
@@ -345,8 +297,6 @@
 
   function render() {
     const agg = aggregate();
-
-    // 센터 전체 실적 KPI: 총액 + 국가/수탁/시험 합계 내역
     setText("kpiCenter", fmtShort(agg.total) + "원");
     const cHost = document.getElementById("kpiCenterSub");
     if (cHost) {
@@ -355,18 +305,14 @@
         '<div class="kpi-bd"><span>수탁용역</span><b>' + fmt(agg.amountBySheet["수탁용역"]) + '</b></div>' +
         '<div class="kpi-bd"><span>시험인증</span><b>' + fmt(agg.amountBySheet["시험인증"]) + '</b></div>';
     }
-
     renderTeamKpi("Jeonsan", "전산", agg);
     renderTeamKpi("Tanso", "탄소", agg);
     renderTeamKpi("Geo", "극저온", agg);
-
     drawCenterShare(agg);
     drawTeamAmount(agg);
-
     renderTable(currentTab);
   }
 
-  // 팀 KPI 카드: 총액 + 국가/수탁/시험 항목별 금액
   function renderTeamKpi(suffix, team, agg) {
     setText("kpi" + suffix, fmtShort(agg.amountByTeam[team]) + "원");
     const bd = agg.amountByTeamSheet[team];
@@ -379,4 +325,170 @@
   }
 
   function drawCenterShare(agg) {
-    const vals = TEAMS.map(t => Math.round(ag
+    const vals = TEAMS.map(t => Math.round(agg.amountByTeam[t]));
+    const sum = vals.reduce((a, b) => a + b, 0);
+    upsertChart("chartCenterShare", "doughnut", {
+      labels: TEAMS.map(t => t + "팀"),
+      datasets: [{
+        data: vals,
+        backgroundColor: TEAMS.map(t => TEAM_COLORS[t]),
+        borderWidth: 2, borderColor: "#fff"
+      }]
+    }, {
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: { callbacks: { label: c => {
+          const pct = sum > 0 ? ((c.parsed / sum) * 100).toFixed(1) : "0.0";
+          return c.label + ": " + fmt(c.parsed) + " (" + pct + "%)";
+        } } }
+      }
+    });
+  }
+
+  function drawTeamAmount(agg) {
+    const datasets = SHEETS.map(sh => ({
+      label: sh,
+      data: TEAMS.map(t => Math.round(agg.amountByTeamSheet[t][sh])),
+      backgroundColor: SHEET_COLORS[sh],
+      borderWidth: 1,
+      borderColor: "#fff",
+      stack: "amount"
+    }));
+    upsertChart("chartTeamAmount", "bar", {
+      labels: TEAMS,
+      datasets: datasets
+    }, {
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: {
+          mode: "index",
+          intersect: false,
+          callbacks: {
+            label: c => c.dataset.label + ": " + fmt(c.parsed.y),
+            footer: items => {
+              const teamIdx = items.length ? items[0].dataIndex : -1;
+              if (teamIdx < 0) return "";
+              const t = TEAMS[teamIdx];
+              return "팀 합계: " + fmt(agg.amountByTeam[t]);
+            }
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true, beginAtZero: true, ticks: { callback: v => fmtShort(v) } }
+      }
+    });
+  }
+
+  const TABLE_COLS = {
+    "국가연구개발사업": [
+      { k: "구분", h: "구분" }, { k: "팀", h: "팀", team: true }, { k: "관리번호", h: "관리번호" },
+      { k: "과제명", h: "과제명" }, { k: "주관기관명", h: "주관기관명" }, { k: "역할", h: "역할" },
+      { k: "진행상태", h: "진행상태" }, { k: "실적", h: "당해년도 사업비 합계", num: true }
+    ],
+    "수탁용역": [
+      { k: "팀", h: "담당팀", team: true }, { k: "시험용역항목", h: "시험/용역항목" },
+      { k: "과제명", h: "시험·용역 계약명" }, { k: "담당", h: "담당" },
+      { k: "실적", h: "총 인정실적(A+B)", num: true }, { k: "비고", h: "비고" }
+    ],
+    "시험인증": [
+      { k: "팀", h: "팀", team: true }, { k: "연번", h: "연번" }, { k: "업체명", h: "업체명" },
+      { k: "용역기간", h: "용역기간" }, { k: "과제명", h: "시험/용역항목" }, { k: "담당", h: "담당" },
+      { k: "실적", h: "시험수수료(A)", num: true }, { k: "비고", h: "비고" }
+    ]
+  };
+
+  function renderTable(sheet) {
+    const cols = TABLE_COLS[sheet];
+    let data = RAW[sheet] || [];
+    if (sheet === "국가연구개발사업") data = getFilteredNRND();
+
+    let html = "<table><thead><tr>";
+    cols.forEach(c => { html += '<th class="' + (c.num ? "num" : "") + '">' + c.h + "</th>"; });
+    html += "</tr></thead><tbody>";
+
+    if (!data.length) {
+      html += '<tr><td colspan="' + cols.length + '" style="text-align:center;color:#9ca3af;padding:24px;">표시할 데이터가 없습니다.</td></tr>';
+    } else {
+      // 합계 행을 맨 위에 먼저 출력
+      const sumVal = data.reduce((acc, d) => acc + toNum(d.실적), 0);
+      const numColIdx = cols.findIndex(c => c.num);
+      html += '<tr class="total-row">';
+      cols.forEach((c, idx) => {
+        if (c.num) {
+          html += '<td class="num">' + fmt(sumVal) + "</td>";
+        } else if (idx === 0) {
+          html += '<td>합계 (' + data.length + '건)</td>';
+        } else if (idx === numColIdx - 1) {
+          html += '<td style="text-align:right;">총계</td>';
+        } else {
+          html += "<td></td>";
+        }
+      });
+      html += "</tr>";
+
+      // 데이터 행
+      data.forEach(d => {
+        html += "<tr>";
+        cols.forEach(c => {
+          let val = d[c.k];
+          if (c.num) {
+            html += '<td class="num">' + fmt(toNum(val)) + "</td>";
+          } else if (c.team) {
+            const t = normTeam(val);
+            const badge = TEAM_BADGE[t] || "b-etc";
+            html += '<td><span class="badge ' + badge + '">' + (t || (val || "-")) + "</span></td>";
+          } else {
+            const s = (val === null || val === undefined || String(val).trim() === "") ? "-" : String(val);
+            html += "<td>" + escapeHtml(s) + "</td>";
+          }
+        });
+        html += "</tr>";
+      });
+    }
+    html += "</tbody></table>";
+    document.getElementById("tableScroll").innerHTML = html;
+  }
+
+  function upsertChart(canvasId, type, data, options) {
+    if (charts[canvasId]) charts[canvasId].destroy();
+    const ctx = document.getElementById(canvasId).getContext("2d");
+    charts[canvasId] = new Chart(ctx, {
+      type, data,
+      options: Object.assign({ responsive: true, maintainAspectRatio: false }, options)
+    });
+  }
+  function setText(id, t) { const el = document.getElementById(id); if (el) el.textContent = t; }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+  }
+  function showError(msg) { document.getElementById("errBox").innerHTML = '<div class="err">' + escapeHtml(msg) + "</div>"; }
+  function clearError() { document.getElementById("errBox").innerHTML = ""; }
+
+  document.getElementById("fileInput").addEventListener("change", function (e) {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    document.getElementById("fileName").textContent = f.name;
+    handleFile(f);
+  });
+
+  document.getElementById("filterBox").addEventListener("click", function (e) {
+    const btn = e.target.closest(".chip");
+    if (!btn) return;
+    currentGubun = btn.getAttribute("data-gubun");
+    document.querySelectorAll("#filterBox .chip").forEach(c => c.classList.remove("active"));
+    btn.classList.add("active");
+    render();
+  });
+
+  document.getElementById("tableTabs").addEventListener("click", function (e) {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    currentTab = btn.getAttribute("data-sheet");
+    document.querySelectorAll("#tableTabs button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    renderTable(currentTab);
+  });
+})();
