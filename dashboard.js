@@ -19,6 +19,14 @@
   const TEAM_COLORS = { "전산": "#f59e0b", "탄소": "#10b981", "극저온": "#3b82f6" };
   const TEAM_BADGE = { "전산": "b-jeonsan", "탄소": "b-tanso", "극저온": "b-geo" };
 
+  // ---- 시트(사업 구분) 정의 ---------------------------------------------
+  const SHEETS = ["국가연구개발사업", "수탁용역", "시험인증"];
+  const SHEET_COLORS = {
+    "국가연구개발사업": "#3b82f6", // 파랑
+    "수탁용역": "#f59e0b",         // 주황
+    "시험인증": "#10b981"          // 초록
+  };
+
   // ---- 상태 -------------------------------------------------------------
   let RAW = { "국가연구개발사업": [], "수탁용역": [], "시험인증": [] };
   let currentGubun = "전체";
@@ -241,7 +249,7 @@
     for (let i = 0; i < H.length; i++) {
       if (H[i].includes(norm(blockKw1)) || H[i].includes(norm(blockKw2))) { blockStart = i; break; }
     }
-    // "입금기준" 블록 시작 ��까지를 당해년도 블록으로 제한
+    // "입금기준" 블록 시작 전까지를 당해년도 블록으로 제한
     for (let i = (blockStart >= 0 ? blockStart + 1 : 0); i < H.length; i++) {
       if (H[i].includes("입금") || H[i].includes("실적")) { blockEnd = i; break; }
     }
@@ -335,6 +343,12 @@
     const rows = allRowsForAgg();
     const amountByTeam = { "전산": 0, "탄소": 0, "극저온": 0 };
     const countByTeam = { "전산": 0, "탄소": 0, "극저온": 0 };
+    // 시트(사업구분) × 팀 별 금액 매트릭스
+    const amountByTeamSheet = {
+      "전산": { "국가연구개발사업": 0, "수탁용역": 0, "시험인증": 0 },
+      "탄소": { "국가연구개발사업": 0, "수탁용역": 0, "시험인증": 0 },
+      "극저온": { "국가연구개발사업": 0, "수탁용역": 0, "시험인증": 0 }
+    };
     let total = 0, count = 0;
     rows.forEach(d => {
       const t = d.팀;
@@ -343,9 +357,11 @@
       if (TEAMS.includes(t)) {
         amountByTeam[t] += amt;
         countByTeam[t] += 1;
+        const sh = d._sheet;
+        if (amountByTeamSheet[t][sh] !== undefined) amountByTeamSheet[t][sh] += amt;
       }
     });
-    return { amountByTeam, countByTeam, total, count };
+    return { amountByTeam, countByTeam, amountByTeamSheet, total, count };
   }
 
   function render() {
@@ -371,18 +387,39 @@
     renderTable(currentTab);
   }
 
+  // 팀별 실적 합계 — 시트(사업구분)별 누적 막대그래프
   function drawTeamAmount(agg) {
+    const datasets = SHEETS.map(sh => ({
+      label: sh,
+      data: TEAMS.map(t => Math.round(agg.amountByTeamSheet[t][sh])),
+      backgroundColor: SHEET_COLORS[sh],
+      borderWidth: 1,
+      borderColor: "#fff",
+      stack: "amount"
+    }));
+
     upsertChart("chartTeamAmount", "bar", {
       labels: TEAMS,
-      datasets: [{
-        label: "실적 합계(원)",
-        data: TEAMS.map(t => Math.round(agg.amountByTeam[t])),
-        backgroundColor: TEAMS.map(t => TEAM_COLORS[t]),
-        borderRadius: 6
-      }]
+      datasets: datasets
     }, {
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmt(c.parsed.y) } } },
-      scales: { y: { beginAtZero: true, ticks: { callback: v => fmtShort(v) } } }
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: {
+          callbacks: {
+            label: c => c.dataset.label + ": " + fmt(c.parsed.y),
+            footer: items => {
+              const teamIdx = items.length ? items[0].dataIndex : -1;
+              if (teamIdx < 0) return "";
+              const t = TEAMS[teamIdx];
+              return "팀 합계: " + fmt(agg.amountByTeam[t]);
+            }
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true, beginAtZero: true, ticks: { callback: v => fmtShort(v) } }
+      }
     });
   }
 
@@ -484,6 +521,23 @@
         });
         html += "</tr>";
       });
+
+      // ---- 합계 행 추가 (금액 컬럼 총합) ----
+      const sumVal = data.reduce((acc, d) => acc + toNum(d.실적), 0);
+      const numColIdx = cols.findIndex(c => c.num);
+      html += '<tr class="total-row">';
+      cols.forEach((c, idx) => {
+        if (c.num) {
+          html += '<td class="num">' + fmt(sumVal) + "</td>";
+        } else if (idx === 0) {
+          html += '<td><b>합계 (' + data.length + '건)</b></td>';
+        } else if (idx === numColIdx - 1) {
+          html += '<td style="text-align:right;"><b>총계</b></td>';
+        } else {
+          html += "<td></td>";
+        }
+      });
+      html += "</tr>";
     }
     html += "</tbody></table>";
     document.getElementById("tableScroll").innerHTML = html;
