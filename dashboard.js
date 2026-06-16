@@ -587,8 +587,8 @@
 
   // 캡처/PDF용: 대시보드 영역을 캔버스로 렌더
   function captureDash() {
-    const dash = document.getElementById("dash");
-    return html2canvas(dash, { scale: 2, backgroundColor: "#f4f6fa", useCORS: true });
+    const area = document.getElementById("captureArea");
+    return html2canvas(area, { scale: 2, backgroundColor: "#f4f6fa", useCORS: true });
   }
   function todayStr() {
     const d = new Date();
