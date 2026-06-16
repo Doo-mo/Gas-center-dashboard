@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>가스연료기술센터 대시보드</title>
+<!-- SheetJS: 엑셀 읽기 / Chart.js: 차트 -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f4f6fa;
+    --card: #ffffff;
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --accent: #2563eb;
+    --jeonsan: #f59e0b;   /* 전산 */
+    --tanso: #10b981;     /* 탄소 */
+    --geo: #3b82f6;       /* 극저온 */
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Malgun Gothic","맑은 고딕",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  header.top {
+    background: linear-gradient(135deg,#1e3a8a,#2563eb);
+    color: #fff;
+    padding: 20px 24px;
+  }
+  header.top h1 { margin: 0; font-size: 20px; font-weight: 700; }
+  header.top p { margin: 4px 0 0; font-size: 13px; opacity: .85; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 20px 24px 60px; }
+
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 20px; box-shadow: var(--shadow);
+    margin-bottom: 20px;
+  }
+  .file-box { display: flex; align-items: center; gap: 10px; }
+  .file-box label {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent); color: #fff; padding: 9px 16px;
+    border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;
+    transition: background .15s;
+  }
+  .file-box label:hover { background: #1d4ed8; }
+  .file-box input { display: none; }
+  #fileName { font-size: 13px; color: var(--muted); }
+
+  .filter-box { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .filter-box .flabel { font-size: 13px; color: var(--muted); font-weight: 600; margin-right: 2px; }
+  .chip {
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    padding: 6px 14px; border-radius: 999px; cursor: pointer; font-size: 13px;
+    transition: all .15s;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .filter-note { font-size: 11px; color: var(--muted); }
+
+  .hint {
+    background: #eff6ff; border: 1px dashed #93c5fd; color: #1e40af;
+    border-radius: 12px; padding: 28px; text-align: center; font-size: 14px;
+    line-height: 1.7;
+  }
+  .hint b { color: #1d4ed8; }
+
+  .kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 20px; }
+  .kpi {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .kpi .label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .kpi .value { font-size: 22px; font-weight: 800; letter-spacing: -.5px; }
+  .kpi .sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .kpi.k1 { border-top: 3px solid var(--accent); }
+  .kpi.k2 { border-top: 3px solid var(--jeonsan); }
+  .kpi.k3 { border-top: 3px solid var(--tanso); }
+  .kpi.k4 { border-top: 3px solid var(--geo); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 18px 20px; box-shadow: var(--shadow);
+  }
+  .card h3 { margin: 0 0 14px; font-size: 15px; font-weight: 700; }
+  .card .chart-host { position: relative; height: 300px; }
+
+  .team-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-top: 14px; }
+  .team-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .team-card .tname { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .team-card .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .team-card .tval { font-size: 18px; font-weight: 800; margin-top: 6px; }
+  .team-card .tpct { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .table-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .table-tabs { display: flex; border-bottom: 1px solid var(--line); background: #f9fafb; }
+  .table-tabs button {
+    border: none; background: none; padding: 13px 20px; cursor: pointer;
+    font-size: 14px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent;
+  }
+  .table-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); background: #fff; }
+  .table-scroll { overflow-x: auto; max-height: 520px; overflow-y: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; white-space: nowrap; }
+  thead th {
+    position: sticky; top: 0; background: #f3f4f6; color: var(--ink);
+    text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); font-weight: 700;
+  }
+  tbody td { padding: 9px 12px; border-bottom: 1px solid #f1f3f5; }
+  tbody tr:hover { background: #f9fafb; }
+  td.num, th.num { text-align: right; }
+
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .b-jeonsan { background: #fef3c7; color: #92400e; }
+  .b-tanso { background: #d1fae5; color: #065f46; }
+  .b-geo { background: #dbeafe; color: #1e40af; }
+  .b-etc { background: #f3f4f6; color: #4b5563; }
+
+  .err { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 14px 18px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; white-space: pre-line; }
+
+  .section-title { font-size: 14px; font-weight: 700; color: var(--muted); margin: 4px 0 12px; }
+
+  @media (max-width: 920px) {
+    .kpis { grid-template-columns: repeat(2,1fr); }
+    .grid2 { grid-template-columns: 1fr; }
+    .team-cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>🏭 미음본부 가스연료기술센터 — 사업 현황 대시보드</h1>
+  <p>엑셀 파일을 업로드하면 국가연구개발사업 · 수탁용역 · 시험인증 데이터를 분석합니다. (파일은 브라우저에서만 읽으며 어디에도 저장되지 않습니다 🔒)</p>
+</header>
+
+<div class="wrap">
+  <div class="controls">
+    <div class="file-box">
+      <label for="fileInput">📁 엑셀 파일 선택</label>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" />
+      <span id="fileName">선택된 파일 없음</span>
+    </div>
+    <div class="filter-box" id="filterBox" style="display:none;">
+      <span class="flabel">🔎 구분</span>
+      <button class="chip active" data-gubun="전체">전체</button>
+      <button class="chip" data-gubun="기존">기존</button>
+      <button class="chip" data-gubun="연장">연장</button>
+      <button class="chip" data-gubun="신규">신규</button>
+      <button class="chip" data-gubun="기획">기획</button>
+      <span class="filter-note">* 구분 필터는 국가연구개발사업에만 적용됩니다</span>
+    </div>
+  </div>
+
+  <div id="errBox"></div>
+
+  <div id="hint" class="hint">
+    위의 <b>📁 엑셀 파일 선택</b> 버튼을 눌러 사업 현황 엑셀 파일을 업로드하세요.<br />
+    <b>국가연구개발사업</b>, <b>수탁용역</b>, <b>시험인증</b> 시트를 자동으로 읽어 대시보드를 그립니다.
+  </div>
+
+  <div id="dash" style="display:none;">
+    <!-- KPI -->
+    <div class="kpis">
+      <div class="kpi k1"><div class="label">총 과제 수</div><div class="value" id="kpiCount">-</div><div class="sub" id="kpiCountSub"></div></div>
+      <div class="kpi k2"><div class="label">전산팀 실적</div><div class="value" id="kpiJeonsan">-</div><div class="sub" id="kpiJeonsanSub"></div></div>
+      <div class="kpi k3"><div class="label">탄소팀 실적</div><div class="value" id="kpiTanso">-</div><div class="sub" id="kpiTansoSub"></div></div>
+      <div class="kpi k4"><div class="label">극저온팀 실적</div><div class="value" id="kpiGeo">-</div><div class="sub" id="kpiGeoSub"></div></div>
+    </div>
+
+    <!-- 차트 2종 -->
+    <div class="grid2">
+      <div class="card">
+        <h3>📊 팀별 실적 합계 (당해년도 사업비 / 총 인정실적 / 시험수수료)</h3>
+        <div class="chart-host"><canvas id="chartTeamAmount"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>📊 팀별 과제 수</h3>
+        <div class="chart-host"><canvas id="chartTeamCount"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 센터 실적현황 -->
+    <div class="card" style="margin-bottom:20px;">
+      <h3>🥧 센터 실적현황 — 3개 팀 합계 및 비율</h3>
+      <div class="grid2" style="margin-bottom:0;">
+        <div class="chart-host" style="height:320px;"><canvas id="chartCenterShare"></canvas></div>
+        <div>
+          <div class="section-title">팀별 실적 합계</div>
+          <div class="team-cards" id="teamShareCards"></div>
+          <div class="team-card" style="margin-top:12px; background:#f9fafb;">
+            <div class="tname">🏢 센터 전체 실적 합계</div>
+            <div class="tval" id="centerTotal">-</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 전체 목록 -->
+    <div class="table-card">
+      <div class="table-tabs" id="tableTabs">
+        <button class="active" data-sheet="국가연구개발사업">국가연구개발사업</button>
+        <button data-sheet="수탁용역">수탁용역</button>
+        <button data-sheet="시험인증">시험인증</button>
+      </div>
+      <div class="table-scroll" id="tableScroll"></div>
+    </div>
+  </div>
+</div>
+
+<script src="dashboard.js"></script>
+</body>
+</html>
