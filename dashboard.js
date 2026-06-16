@@ -354,10 +354,12 @@
     const bd = agg.amountByTeamSheet[team];
     const host = document.getElementById("kpi" + suffix + "Sub");
     if (!host) return;
+    const teamSum = bd["국가연구개발사업"] + bd["수탁용역"] + bd["시험인증"];
     host.innerHTML =
       '<div class="kpi-bd"><span>국가연구개발사업</span><b>' + fmt(bd["국가연구개발사업"]) + '</b></div>' +
       '<div class="kpi-bd"><span>수탁용역</span><b>' + fmt(bd["수탁용역"]) + '</b></div>' +
-      '<div class="kpi-bd"><span>시험인증</span><b>' + fmt(bd["시험인증"]) + '</b></div>';
+      '<div class="kpi-bd"><span>시험인증</span><b>' + fmt(bd["시험인증"]) + '</b></div>' +
+      '<div class="kpi-goal"><span>합계</span><b>' + fmt(teamSum) + '</b></div>';
   }
 
   // 도넛 가운데에 텍스트를 그리는 플러그인
