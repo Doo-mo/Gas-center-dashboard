@@ -22,9 +22,9 @@
   // ---- 시트(사업 구분) 정의 ---------------------------------------------
   const SHEETS = ["국가연구개발사업", "수탁용역", "시험인증"];
   const SHEET_COLORS = {
-    "국가연구개발사업": "#3b82f6", // 파랑
-    "수탁용역": "#f59e0b",         // 주황
-    "시험인증": "#10b981"          // 초록
+    "국가연구개발사업": "#3b82f6",
+    "수탁용역": "#f59e0b",
+    "시험인증": "#10b981"
   };
 
   // ---- 상태 -------------------------------------------------------------
@@ -321,6 +321,7 @@
     const rows = allRowsForAgg();
     const amountByTeam = { "전산": 0, "탄소": 0, "극저온": 0 };
     const countByTeam = { "전산": 0, "탄소": 0, "극저온": 0 };
+    const amountBySheet = { "국가연구개발사업": 0, "수탁용역": 0, "시험인증": 0 };
     const amountByTeamSheet = {
       "전산": { "국가연구개발사업": 0, "수탁용역": 0, "시험인증": 0 },
       "탄소": { "국가연구개발사업": 0, "수탁용역": 0, "시험인증": 0 },
@@ -331,6 +332,7 @@
       const t = d.팀;
       const amt = toNum(d.실적);
       total += amt; count++;
+      if (amountBySheet[d._sheet] !== undefined) amountBySheet[d._sheet] += amt;
       if (TEAMS.includes(t)) {
         amountByTeam[t] += amt;
         countByTeam[t] += 1;
@@ -338,15 +340,21 @@
         if (amountByTeamSheet[t][sh] !== undefined) amountByTeamSheet[t][sh] += amt;
       }
     });
-    return { amountByTeam, countByTeam, amountByTeamSheet, total, count };
+    return { amountByTeam, countByTeam, amountBySheet, amountByTeamSheet, total, count };
   }
 
   function render() {
     const agg = aggregate();
 
-    // KPI: 센터 전체 실적 + 팀별 실적(항목별 내역 포함)
+    // 센터 전체 실적 KPI: 총액 + 국가/수탁/시험 합계 내역
     setText("kpiCenter", fmtShort(agg.total) + "원");
-    setText("kpiCenterSub", "총 " + agg.count.toLocaleString("ko-KR") + "건");
+    const cHost = document.getElementById("kpiCenterSub");
+    if (cHost) {
+      cHost.innerHTML =
+        '<div class="kpi-bd"><span>국가연구개발사업</span><b>' + fmt(agg.amountBySheet["국가연구개발사업"]) + '</b></div>' +
+        '<div class="kpi-bd"><span>수탁용역</span><b>' + fmt(agg.amountBySheet["수탁용역"]) + '</b></div>' +
+        '<div class="kpi-bd"><span>시험인증</span><b>' + fmt(agg.amountBySheet["시험인증"]) + '</b></div>';
+    }
 
     renderTeamKpi("Jeonsan", "전산", agg);
     renderTeamKpi("Tanso", "탄소", agg);
@@ -370,179 +378,5 @@
       '<div class="kpi-bd"><span>시험인증</span><b>' + fmt(bd["시험인증"]) + '</b></div>';
   }
 
-  // 센터 실적현황 (도넛)
   function drawCenterShare(agg) {
-    const vals = TEAMS.map(t => Math.round(agg.amountByTeam[t]));
-    const sum = vals.reduce((a, b) => a + b, 0);
-    upsertChart("chartCenterShare", "doughnut", {
-      labels: TEAMS.map(t => t + "팀"),
-      datasets: [{
-        data: vals,
-        backgroundColor: TEAMS.map(t => TEAM_COLORS[t]),
-        borderWidth: 2, borderColor: "#fff"
-      }]
-    }, {
-      plugins: {
-        legend: { position: "bottom" },
-        tooltip: { callbacks: { label: c => {
-          const pct = sum > 0 ? ((c.parsed / sum) * 100).toFixed(1) : "0.0";
-          return c.label + ": " + fmt(c.parsed) + " (" + pct + "%)";
-        } } }
-      }
-    });
-  }
-
-  // 팀별 실적 합계 — 시트(사업구분)별 누적 막대그래프
-  function drawTeamAmount(agg) {
-    const datasets = SHEETS.map(sh => ({
-      label: sh,
-      data: TEAMS.map(t => Math.round(agg.amountByTeamSheet[t][sh])),
-      backgroundColor: SHEET_COLORS[sh],
-      borderWidth: 1,
-      borderColor: "#fff",
-      stack: "amount"
-    }));
-
-    upsertChart("chartTeamAmount", "bar", {
-      labels: TEAMS,
-      datasets: datasets
-    }, {
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { position: "bottom" },
-        tooltip: {
-          mode: "index",
-          intersect: false,
-          callbacks: {
-            label: c => c.dataset.label + ": " + fmt(c.parsed.y),
-            footer: items => {
-              const teamIdx = items.length ? items[0].dataIndex : -1;
-              if (teamIdx < 0) return "";
-              const t = TEAMS[teamIdx];
-              return "팀 합계: " + fmt(agg.amountByTeam[t]);
-            }
-          }
-        }
-      },
-      scales: {
-        x: { stacked: true },
-        y: { stacked: true, beginAtZero: true, ticks: { callback: v => fmtShort(v) } }
-      }
-    });
-  }
-
-  // ---- 표 ---------------------------------------------------------------
-  const TABLE_COLS = {
-    "국가연구개발사업": [
-      { k: "구분", h: "구분" }, { k: "팀", h: "팀", team: true }, { k: "관리번호", h: "관리번호" },
-      { k: "과제명", h: "과제명" }, { k: "주관기관명", h: "주관기관명" }, { k: "역할", h: "역할" },
-      { k: "진행상태", h: "진행상태" }, { k: "실적", h: "당해년도 사업비 합계", num: true }
-    ],
-    "수탁용역": [
-      { k: "팀", h: "담당팀", team: true }, { k: "시험용역항목", h: "시험/용역항목" },
-      { k: "과제명", h: "시험·용역 계약명" }, { k: "담당", h: "담당" },
-      { k: "실적", h: "총 인정실적(A+B)", num: true }, { k: "비고", h: "비고" }
-    ],
-    "시험인증": [
-      { k: "팀", h: "팀", team: true }, { k: "연번", h: "연번" }, { k: "업체명", h: "업체명" },
-      { k: "용역기간", h: "용역기간" }, { k: "과제명", h: "시험/용역항목" }, { k: "담당", h: "담당" },
-      { k: "실적", h: "시험수수료(A)", num: true }, { k: "비고", h: "비고" }
-    ]
-  };
-
-  function renderTable(sheet) {
-    const cols = TABLE_COLS[sheet];
-    let data = RAW[sheet] || [];
-    if (sheet === "국가연구개발사업") data = getFilteredNRND();
-
-    let html = "<table><thead><tr>";
-    cols.forEach(c => { html += '<th class="' + (c.num ? "num" : "") + '">' + c.h + "</th>"; });
-    html += "</tr></thead><tbody>";
-
-    if (!data.length) {
-      html += '<tr><td colspan="' + cols.length + '" style="text-align:center;color:#9ca3af;padding:24px;">표시할 데이터가 없습니다.</td></tr>';
-    } else {
-      data.forEach(d => {
-        html += "<tr>";
-        cols.forEach(c => {
-          let val = d[c.k];
-          if (c.num) {
-            html += '<td class="num">' + fmt(toNum(val)) + "</td>";
-          } else if (c.team) {
-            const t = normTeam(val);
-            const badge = TEAM_BADGE[t] || "b-etc";
-            html += '<td><span class="badge ' + badge + '">' + (t || (val || "-")) + "</span></td>";
-          } else {
-            const s = (val === null || val === undefined || String(val).trim() === "") ? "-" : String(val);
-            html += "<td>" + escapeHtml(s) + "</td>";
-          }
-        });
-        html += "</tr>";
-      });
-
-      const sumVal = data.reduce((acc, d) => acc + toNum(d.실적), 0);
-      const numColIdx = cols.findIndex(c => c.num);
-      html += '<tr class="total-row">';
-      cols.forEach((c, idx) => {
-        if (c.num) {
-          html += '<td class="num">' + fmt(sumVal) + "</td>";
-        } else if (idx === 0) {
-          html += '<td><b>합계 (' + data.length + '건)</b></td>';
-        } else if (idx === numColIdx - 1) {
-          html += '<td style="text-align:right;"><b>총계</b></td>';
-        } else {
-          html += "<td></td>";
-        }
-      });
-      html += "</tr>";
-    }
-    html += "</tbody></table>";
-    document.getElementById("tableScroll").innerHTML = html;
-  }
-
-  // ======================================================================
-  //  헬퍼
-  // ======================================================================
-  function upsertChart(canvasId, type, data, options) {
-    if (charts[canvasId]) charts[canvasId].destroy();
-    const ctx = document.getElementById(canvasId).getContext("2d");
-    charts[canvasId] = new Chart(ctx, {
-      type, data,
-      options: Object.assign({ responsive: true, maintainAspectRatio: false }, options)
-    });
-  }
-  function setText(id, t) { const el = document.getElementById(id); if (el) el.textContent = t; }
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
-  }
-  function showError(msg) { document.getElementById("errBox").innerHTML = '<div class="err">' + escapeHtml(msg) + "</div>"; }
-  function clearError() { document.getElementById("errBox").innerHTML = ""; }
-
-  // ======================================================================
-  //  이벤트 바인딩
-  // ======================================================================
-  document.getElementById("fileInput").addEventListener("change", function (e) {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    document.getElementById("fileName").textContent = f.name;
-    handleFile(f);
-  });
-
-  document.getElementById("filterBox").addEventListener("click", function (e) {
-    const btn = e.target.closest(".chip");
-    if (!btn) return;
-    currentGubun = btn.getAttribute("data-gubun");
-    document.querySelectorAll("#filterBox .chip").forEach(c => c.classList.remove("active"));
-    btn.classList.add("active");
-    render();
-  });
-
-  document.getElementById("tableTabs").addEventListener("click", function (e) {
-    const btn = e.target.closest("button");
-    if (!btn) return;
-    currentTab = btn.getAttribute("data-sheet");
-    document.querySelectorAll("#tableTabs button").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    renderTable(currentTab);
-  });
-})();
+    const vals = TEAMS.map(t => Math.round(ag
