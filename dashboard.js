@@ -388,32 +388,32 @@
   //  ellip: true 면 한 줄 말줄임
   const TABLE_COLS = {
     "국가연구개발사업": [
-      { k: "구분", h: "구분", align: "center", w: 64 },
-      { k: "팀", h: "팀", team: true, align: "center", w: 70 },
-      { k: "관리번호", h: "관리번호", align: "center", w: 96 },
+      { k: "구분", h: "구분", align: "center", w: 56 },
+      { k: "팀", h: "팀", team: true, align: "center", w: 64 },
+      { k: "관리번호", h: "관리번호", align: "center", w: 88 },
       { k: "과제명", h: "과제명", align: "left", ellip: true },
-      { k: "주관기관명", h: "주관기관명", align: "center", w: 130 },
-      { k: "역할", h: "역할", align: "center", w: 70 },
-      { k: "진행상태", h: "진행상태", align: "center", w: 84 },
-      { k: "실적", h: "당해년도 사업비 합계", num: true, w: 130 }
+      { k: "주관기관명", h: "주관기관명", align: "left", ellip: true, w: 150 },
+      { k: "역할", h: "역할", align: "center", w: 60 },
+      { k: "진행상태", h: "진행상태", align: "center", w: 78 },
+      { k: "실적", h: "당해년도 사업비 합계", num: true, w: 128 }
     ],
     "수탁용역": [
-      { k: "팀", h: "담당팀", team: true, align: "center", w: 70 },
-      { k: "시험용역항목", h: "시험/용역항목", align: "center", w: 120 },
+      { k: "팀", h: "담당팀", team: true, align: "center", w: 64 },
+      { k: "시험용역항목", h: "시험/용역항목", align: "center", w: 110 },
       { k: "과제명", h: "시험·용역 계약명", align: "left", ellip: true },
-      { k: "담당", h: "담당", align: "center", w: 80 },
-      { k: "실적", h: "총 인정실적(A+B)", num: true, w: 130 },
-      { k: "비고", h: "비고", align: "center", w: 110 }
+      { k: "담당", h: "담당", align: "center", w: 72 },
+      { k: "실적", h: "총 인정실적(A+B)", num: true, w: 128 },
+      { k: "비고", h: "비고", align: "center", w: 100 }
     ],
     "시험인증": [
-      { k: "팀", h: "팀", team: true, align: "center", w: 70 },
-      { k: "연번", h: "연번", align: "center", w: 54 },
-      { k: "업체명", h: "업체명", align: "center", w: 120 },
-      { k: "용역기간", h: "용역기간", align: "center", w: 110 },
+      { k: "팀", h: "팀", team: true, align: "center", w: 64 },
+      { k: "연번", h: "연번", align: "center", w: 50 },
+      { k: "업체명", h: "업체명", align: "left", ellip: true, w: 120 },
+      { k: "용역기간", h: "용역기간", align: "center", w: 104 },
       { k: "과제명", h: "시험/용역항목", align: "left", ellip: true },
-      { k: "담당", h: "담당", align: "center", w: 80 },
-      { k: "실적", h: "시험수수료(A)", num: true, w: 120 },
-      { k: "비고", h: "비고", align: "center", w: 100 }
+      { k: "담당", h: "담당", align: "center", w: 72 },
+      { k: "실적", h: "시험수수료(A)", num: true, w: 118 },
+      { k: "비고", h: "비고", align: "center", w: 92 }
     ]
   };
 
@@ -447,9 +447,9 @@
         if (c.num) {
           html += '<td class="num">' + fmt(sumVal) + "</td>";
         } else if (idx === 0) {
-          html += '<td class="center">합계 (' + data.length + '건)</td>';
+          html += '<td class="center" style="white-space:nowrap;">합계 (' + data.length + '건)</td>';
         } else if (idx === numColIdx - 1) {
-          html += '<td class="center">총계</td>';
+          html += '<td class="center" style="white-space:nowrap;">총계</td>';
         } else {
           html += '<td class="center"></td>';
         }
