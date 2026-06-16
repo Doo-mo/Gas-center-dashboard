@@ -1,5 +1,5 @@
 /* =========================================================================
-      대체연료본부 가스연료기술센터 — 사업 현황 대시보드
+   대체연료본부 가스연료기술센터 — 사업 현황 대시보드
    ========================================================================= */
 (function () {
   "use strict";
@@ -382,37 +382,64 @@
     });
   }
 
+  // 표 컬럼 정의
+  //  align: "num"(오른쪽,금액) | "left"(왼쪽,긴텍스트) | "center"(가운데,기본)
+  //  w: 열 너비(px). 미지정 시 자동
+  //  ellip: true 면 한 줄 말줄임
   const TABLE_COLS = {
     "국가연구개발사업": [
-      { k: "구분", h: "구분" }, { k: "팀", h: "팀", team: true }, { k: "관리번호", h: "관리번호" },
-      { k: "과제명", h: "과제명" }, { k: "주관기관명", h: "주관기관명" }, { k: "역할", h: "역할" },
-      { k: "진행상태", h: "진행상태" }, { k: "실적", h: "당해년도 사업비 합계", num: true }
+      { k: "구분", h: "구분", align: "center", w: 64 },
+      { k: "팀", h: "팀", team: true, align: "center", w: 70 },
+      { k: "관리번호", h: "관리번호", align: "center", w: 96 },
+      { k: "과제명", h: "과제명", align: "left", ellip: true },
+      { k: "주관기관명", h: "주관기관명", align: "center", w: 130 },
+      { k: "역할", h: "역할", align: "center", w: 70 },
+      { k: "진행상태", h: "진행상태", align: "center", w: 84 },
+      { k: "실적", h: "당해년도 사업비 합계", num: true, w: 130 }
     ],
     "수탁용역": [
-      { k: "팀", h: "담당팀", team: true }, { k: "시험용역항목", h: "시험/용역항목" },
-      { k: "과제명", h: "시험·용역 계약명" }, { k: "담당", h: "담당" },
-      { k: "실적", h: "총 인정실적(A+B)", num: true }, { k: "비고", h: "비고" }
+      { k: "팀", h: "담당팀", team: true, align: "center", w: 70 },
+      { k: "시험용역항목", h: "시험/용역항목", align: "center", w: 120 },
+      { k: "과제명", h: "시험·용역 계약명", align: "left", ellip: true },
+      { k: "담당", h: "담당", align: "center", w: 80 },
+      { k: "실적", h: "총 인정실적(A+B)", num: true, w: 130 },
+      { k: "비고", h: "비고", align: "center", w: 110 }
     ],
     "시험인증": [
-      { k: "팀", h: "팀", team: true }, { k: "연번", h: "연번" }, { k: "업체명", h: "업체명" },
-      { k: "용역기간", h: "용역기간" }, { k: "과제명", h: "시험/용역항목" }, { k: "담당", h: "담당" },
-      { k: "실적", h: "시험수수료(A)", num: true }, { k: "비고", h: "비고" }
+      { k: "팀", h: "팀", team: true, align: "center", w: 70 },
+      { k: "연번", h: "연번", align: "center", w: 54 },
+      { k: "업체명", h: "업체명", align: "center", w: 120 },
+      { k: "용역기간", h: "용역기간", align: "center", w: 110 },
+      { k: "과제명", h: "시험/용역항목", align: "left", ellip: true },
+      { k: "담당", h: "담당", align: "center", w: 80 },
+      { k: "실적", h: "시험수수료(A)", num: true, w: 120 },
+      { k: "비고", h: "비고", align: "center", w: 100 }
     ]
   };
+
+  function alignClass(c) {
+    if (c.num) return "num";
+    if (c.align === "left") return "left";
+    if (c.align === "center") return "center";
+    return "center";
+  }
 
   function renderTable(sheet) {
     const cols = TABLE_COLS[sheet];
     let data = RAW[sheet] || [];
     if (sheet === "국가연구개발사업") data = getFilteredNRND();
 
-    let html = "<table><thead><tr>";
-    cols.forEach(c => { html += '<th class="' + (c.num ? "num" : "") + '">' + c.h + "</th>"; });
+    // colgroup으로 열 너비 지정
+    let html = "<table><colgroup>";
+    cols.forEach(c => { html += c.w ? ('<col style="width:' + c.w + 'px;">') : "<col>"; });
+    html += "</colgroup><thead><tr>";
+    cols.forEach(c => { html += '<th class="' + alignClass(c) + '">' + c.h + "</th>"; });
     html += "</tr></thead><tbody>";
 
     if (!data.length) {
       html += '<tr><td colspan="' + cols.length + '" style="text-align:center;color:#9ca3af;padding:24px;">표시할 데이터가 없습니다.</td></tr>';
     } else {
-      // 합계 행을 맨 위에 먼저 출력
+      // 합계 행 (맨 위)
       const sumVal = data.reduce((acc, d) => acc + toNum(d.실적), 0);
       const numColIdx = cols.findIndex(c => c.num);
       html += '<tr class="total-row">';
@@ -420,11 +447,11 @@
         if (c.num) {
           html += '<td class="num">' + fmt(sumVal) + "</td>";
         } else if (idx === 0) {
-          html += '<td>합계 (' + data.length + '건)</td>';
+          html += '<td class="center">합계 (' + data.length + '건)</td>';
         } else if (idx === numColIdx - 1) {
-          html += '<td style="text-align:right;">총계</td>';
+          html += '<td class="center">총계</td>';
         } else {
-          html += "<td></td>";
+          html += '<td class="center"></td>';
         }
       });
       html += "</tr>";
@@ -434,15 +461,17 @@
         html += "<tr>";
         cols.forEach(c => {
           let val = d[c.k];
+          const ac = alignClass(c) + (c.ellip ? " ellip" : "");
           if (c.num) {
             html += '<td class="num">' + fmt(toNum(val)) + "</td>";
           } else if (c.team) {
             const t = normTeam(val);
             const badge = TEAM_BADGE[t] || "b-etc";
-            html += '<td><span class="badge ' + badge + '">' + (t || (val || "-")) + "</span></td>";
+            html += '<td class="' + ac + '"><span class="badge ' + badge + '">' + (t || (val || "-")) + "</span></td>";
           } else {
             const s = (val === null || val === undefined || String(val).trim() === "") ? "-" : String(val);
-            html += "<td>" + escapeHtml(s) + "</td>";
+            const title = c.ellip ? (' title="' + escapeHtml(s) + '"') : "";
+            html += '<td class="' + ac + '"' + title + ">" + escapeHtml(s) + "</td>";
           }
         });
         html += "</tr>";
