@@ -13,6 +13,7 @@
   const SHEET_COLORS = { "국가연구개발사업": "#6366f1", "수탁용역": "#ec4899", "시험인증": "#14b8a6" };
 
   let RAW = { "국가연구개발사업": [], "수탁용역": [], "시험인증": [] };
+  let GOAL = 0; // 운용자금 목표금액 ('분기별 보고' 시트에서 자동 탐지). 못 찾으면 0
   let currentGubun = "전체";
   let currentTab = "국가연구개발사업";
   const charts = {};
@@ -22,7 +23,7 @@
     if (typeof v === "number") return isFinite(v) ? v : 0;
     let s = String(v).trim();
     if (s === "") return 0;
-    s = s.replace(/[,\s₩원]/g, "");
+    s = s.replace(/[,\s₩원%]/g, "");
     let neg = false;
     if (/^\(.*\)$/.test(s)) { neg = true; s = s.replace(/[()]/g, ""); }
     const n = parseFloat(s);
@@ -71,6 +72,35 @@
   function isTotalRow(rowJoined) {
     const s = norm(rowJoined);
     return s.includes("합계") || s.includes("총계") || s.includes("소계") || s === "계";
+  }
+
+  // '분기별 보고' 시트에서 "운용자금 목표금액" 글자를 찾아 그 아래 칸의 숫자를 목표로 읽음
+  function parseGoal(aoa) {
+    if (!aoa || !aoa.length) return 0;
+    const KEY = norm("운용자금목표금액");
+    for (let r = 0; r < aoa.length; r++) {
+      const row = aoa[r] || [];
+      for (let c = 0; c < row.length; c++) {
+        const cell = norm(row[c]);
+        if (cell && (cell.includes(KEY) || (cell.includes("운용자금") && cell.includes("목표")))) {
+          // 1) 바로 아래 칸들을 확인 (같은 열 + 좌우 1칸) → 첫 양수 숫자
+          for (let dr = 1; dr <= 3; dr++) {
+            const below = aoa[r + dr] || [];
+            for (const cc of [c, c + 1, c - 1]) {
+              if (cc < 0) continue;
+              const val = toNum(below[cc]);
+              if (val > 0) return val;
+            }
+          }
+          // 2) 같은 행 오른쪽 칸들도 확인 (병합/가로배치 대비)
+          for (let cc = c + 1; cc < row.length; cc++) {
+            const val = toNum(row[cc]);
+            if (val > 0) return val;
+          }
+        }
+      }
+    }
+    return 0;
   }
 
   function parseNRND(aoa) {
@@ -242,6 +272,12 @@
         RAW["국가연구개발사업"] = found[norm("국가연구개발사업")] ? parseNRND(aoaOf(found[norm("국가연구개발사업")])) : [];
         RAW["수탁용역"] = found[norm("수탁용역")] ? parseService(aoaOf(found[norm("수탁용역")])) : [];
         RAW["시험인증"] = found[norm("시험인증")] ? parseCert(aoaOf(found[norm("시험인증")])) : [];
+
+        // '분기별 보고' 시트에서 운용자금 목표금액 자동 탐지 (없으면 0 → 숨김)
+        GOAL = 0;
+        const goalSheet = found[norm("분기별보고")] || found[norm("분기별 보고")];
+        if (goalSheet) GOAL = parseGoal(aoaOf(goalSheet));
+
         if (missing.length === wanted.length) {
           showError("필요한 시트를 찾지 못했습니다.\n엑셀에 다음 시트가 있는지 확인해주세요: 국가연구개발사업, 수탁용역, 시험인증\n\n현재 파일의 시트: " + wb.SheetNames.join(", "));
           return;
@@ -301,10 +337,17 @@
     setText("kpiCenter", fmtShort(agg.total) + "원");
     const cHost = document.getElementById("kpiCenterSub");
     if (cHost) {
-      cHost.innerHTML =
+      let h =
         '<div class="kpi-bd"><span>국가연구개발사업</span><b>' + fmt(agg.amountBySheet["국가연구개발사업"]) + '</b></div>' +
         '<div class="kpi-bd"><span>수탁용역</span><b>' + fmt(agg.amountBySheet["수탁용역"]) + '</b></div>' +
         '<div class="kpi-bd"><span>시험인증</span><b>' + fmt(agg.amountBySheet["시험인증"]) + '</b></div>';
+      // 목표금액 + 달성률 (목표를 찾았을 때만 표시)
+      if (GOAL > 0) {
+        const rate = (agg.total / GOAL) * 100;
+        h += '<div class="kpi-goal"><span>목표금액</span><b>' + fmt(GOAL) + '</b></div>' +
+             '<div class="kpi-goal"><span>달성률</span><b>' + rate.toFixed(1) + '%</b></div>';
+      }
+      cHost.innerHTML = h;
     }
     renderTeamKpi("Jeonsan", "전산", agg);
     renderTeamKpi("Tanso", "탄소", agg);
@@ -325,9 +368,52 @@
       '<div class="kpi-bd"><span>시험인증</span><b>' + fmt(bd["시험인증"]) + '</b></div>';
   }
 
+  // 도넛 가운데에 달성률 텍스트를 그리는 플러그인
+  const centerTextPlugin = {
+    id: "centerText",
+    afterDraw(chart) {
+      const opt = chart.options.plugins.centerText;
+      if (!opt || !opt.lines || !opt.lines.length) return;
+      const { ctx, chartArea } = chart;
+      if (!chartArea) return;
+      const cx = (chartArea.left + chartArea.right) / 2;
+      const cy = (chartArea.top + chartArea.bottom) / 2;
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const lines = opt.lines;
+      // 줄 간격 계산
+      let offsetY = -(lines.length - 1) * 11;
+      lines.forEach(ln => {
+        ctx.fillStyle = ln.color || "#1f2937";
+        ctx.font = ln.font || "13px 'Malgun Gothic', sans-serif";
+        ctx.fillText(ln.text, cx, cy + offsetY);
+        offsetY += (ln.lineHeight || 22);
+      });
+      ctx.restore();
+    }
+  };
+
   function drawCenterShare(agg) {
     const vals = TEAMS.map(t => Math.round(agg.amountByTeam[t]));
     const sum = vals.reduce((a, b) => a + b, 0);
+
+    // 도넛 가운데 텍스트: 목표를 찾았으면 달성률, 못 찾았으면 센터 합계
+    let centerLines;
+    if (GOAL > 0) {
+      const rate = (agg.total / GOAL) * 100;
+      centerLines = [
+        { text: "목표 달성률", color: "#6b7280", font: "12px 'Malgun Gothic', sans-serif", lineHeight: 22 },
+        { text: rate.toFixed(1) + "%", color: "#2563eb", font: "800 26px 'Malgun Gothic', sans-serif", lineHeight: 24 },
+        { text: fmtShort(agg.total) + " / " + fmtShort(GOAL), color: "#9ca3af", font: "11px 'Malgun Gothic', sans-serif", lineHeight: 18 }
+      ];
+    } else {
+      centerLines = [
+        { text: "센터 합계", color: "#6b7280", font: "12px 'Malgun Gothic', sans-serif", lineHeight: 22 },
+        { text: fmtShort(sum) + "원", color: "#1f2937", font: "800 22px 'Malgun Gothic', sans-serif", lineHeight: 22 }
+      ];
+    }
+
     upsertChart("chartCenterShare", "doughnut", {
       labels: TEAMS.map(t => t + "팀"),
       datasets: [{
@@ -336,14 +422,16 @@
         borderWidth: 2, borderColor: "#fff"
       }]
     }, {
+      cutout: "62%",
       plugins: {
         legend: { position: "bottom" },
+        centerText: { lines: centerLines },
         tooltip: { callbacks: { label: c => {
           const pct = sum > 0 ? ((c.parsed / sum) * 100).toFixed(1) : "0.0";
           return c.label + ": " + fmt(c.parsed) + " (" + pct + "%)";
         } } }
       }
-    });
+    }, [centerTextPlugin]);
   }
 
   function drawTeamAmount(agg) {
@@ -488,13 +576,15 @@
     document.getElementById("tableScroll").innerHTML = html;
   }
 
-  function upsertChart(canvasId, type, data, options) {
+  function upsertChart(canvasId, type, data, options, plugins) {
     if (charts[canvasId]) charts[canvasId].destroy();
     const ctx = document.getElementById(canvasId).getContext("2d");
-    charts[canvasId] = new Chart(ctx, {
+    const cfg = {
       type, data,
       options: Object.assign({ responsive: true, maintainAspectRatio: false }, options)
-    });
+    };
+    if (plugins && plugins.length) cfg.plugins = plugins;
+    charts[canvasId] = new Chart(ctx, cfg);
   }
   function setText(id, t) { const el = document.getElementById(id); if (el) el.textContent = t; }
   function escapeHtml(s) {
