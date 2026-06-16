@@ -106,9 +106,11 @@
   thead th {
     position: sticky; top: 0; z-index: 3; background: #f3f4f6; color: var(--ink);
     text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); font-weight: 700;
-    white-space: nowrap;
+    white-space: nowrap; border-right: 1px solid #e5e7eb;
   }
-  tbody td { padding: 6px 8px; border-bottom: 1px solid #f1f3f5; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; }
+  thead th:last-child { border-right: none; }
+  tbody td { padding: 6px 8px; border-bottom: 1px solid #f1f3f5; border-right: 1px solid #f1f3f5; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; }
+  tbody td:last-child { border-right: none; }
   tbody tr:hover td { background: #f9fafb; }
   td.num, th.num { text-align: right; white-space: nowrap; }
 
@@ -139,7 +141,7 @@
 </head>
 <body>
 <header class="top">
-  <h1>🏭 미음본부 가스연료기술센터 — 사업 현황 대시보드</h1>
+  <h1>🏭 대체연료본부 가스연료기술센터 — 사업 현황 대시보드</h1>
   <p>엑셀 파일을 업로드하면 국가연구개발사업 · 수탁용역 · 시험인증 데이터를 분석합니다. (파일은 브라우저에서만 읽으며 어디에도 저장되지 않습니다.)</p>
 </header>
 
