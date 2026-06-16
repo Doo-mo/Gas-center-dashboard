@@ -105,14 +105,19 @@
   table { border-collapse: collapse; width: 100%; font-size: 11.5px; table-layout: fixed; }
   thead th {
     position: sticky; top: 0; z-index: 3; background: #f3f4f6; color: var(--ink);
-    text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); font-weight: 700;
+    text-align: center; padding: 7px 8px; border-bottom: 1px solid var(--line); font-weight: 700;
     white-space: nowrap; border-right: 1px solid #e5e7eb;
   }
   thead th:last-child { border-right: none; }
   tbody td { padding: 6px 8px; border-bottom: 1px solid #f1f3f5; border-right: 1px solid #f1f3f5; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; }
   tbody td:last-child { border-right: none; }
   tbody tr:hover td { background: #f9fafb; }
+  /* 정렬 유틸 */
   td.num, th.num { text-align: right; white-space: nowrap; }
+  td.center, th.center { text-align: center; }
+  td.left, th.left { text-align: left; }
+  /* 긴 텍스트 열: 한 줄 우선, 넘치면 말줄임 */
+  td.ellip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; white-space: nowrap; }
   .b-jeonsan { background: #fef3c7; color: #92400e; }
