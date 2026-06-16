@@ -4,7 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>가스연료기술센터 대시보드</title>
-<!-- SheetJS: 엑셀 읽기 / Chart.js: 차트 -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
@@ -15,9 +14,9 @@
     --muted: #6b7280;
     --line: #e5e7eb;
     --accent: #2563eb;
-    --jeonsan: #f59e0b;   /* 전산 */
-    --tanso: #10b981;     /* 탄소 */
-    --geo: #3b82f6;       /* 극저온 */
+    --jeonsan: #f59e0b;
+    --tanso: #10b981;
+    --geo: #3b82f6;
     --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
   }
   * { box-sizing: border-box; }
@@ -83,6 +82,9 @@
   .kpi.k2 { border-top: 3px solid var(--jeonsan); }
   .kpi.k3 { border-top: 3px solid var(--tanso); }
   .kpi.k4 { border-top: 3px solid var(--geo); }
+  /* 팀 KPI 항목별 내역 */
+  .kpi-bd { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--muted); margin-top: 5px; line-height: 1.4; }
+  .kpi-bd b { color: var(--ink); font-weight: 700; }
 
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
   .card {
@@ -90,14 +92,7 @@
     padding: 18px 20px; box-shadow: var(--shadow);
   }
   .card h3 { margin: 0 0 14px; font-size: 15px; font-weight: 700; }
-  .card .chart-host { position: relative; height: 300px; }
-
-  .team-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-top: 14px; }
-  .team-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
-  .team-card .tname { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
-  .team-card .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-  .team-card .tval { font-size: 18px; font-weight: 800; margin-top: 6px; }
-  .team-card .tpct { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .card .chart-host { position: relative; height: 320px; }
 
   .table-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
   .table-tabs { display: flex; border-bottom: 1px solid var(--line); background: #f9fafb; }
@@ -123,7 +118,6 @@
   .b-etc { background: #f3f4f6; color: #4b5563; }
 
   .err { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 14px 18px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; white-space: pre-line; }
-  /* 합계 행 강조 */
   tbody tr.total-row td {
     background: #eef2ff;
     border-top: 2px solid #c7d2fe;
@@ -131,19 +125,17 @@
     color: #1e3a8a;
   }
   tbody tr.total-row:hover td { background: #e0e7ff; }
-  .section-title { font-size: 14px; font-weight: 700; color: var(--muted); margin: 4px 0 12px; }
 
   @media (max-width: 920px) {
     .kpis { grid-template-columns: repeat(2,1fr); }
     .grid2 { grid-template-columns: 1fr; }
-    .team-cards { grid-template-columns: 1fr; }
   }
 </style>
 </head>
 <body>
 <header class="top">
   <h1>🏭 미음본부 가스연료기술센터 — 사업 현황 대시보드</h1>
-  <p>엑셀 파일을 업로드하면 국가연구개발사업 · 수탁용역 · 시험인증 데이터를 분석합니다. (파일은 브라우저에서만 읽으며 어디에도 저장되지 않습니다 🔒)</p>
+  <p>엑셀 파일을 업로드하면 국가연구개발사업 · 수탁용역 · 시험인증 데이터를 분석합니다. (파일은 브라우저에서만 읽으며 어디에도 저장되지 않습니다.)</p>
 </header>
 
 <div class="wrap">
@@ -172,39 +164,23 @@
   </div>
 
   <div id="dash" style="display:none;">
-    <!-- KPI -->
+    <!-- KPI: 센터 실적 + 팀별 실적(항목별 내역) -->
     <div class="kpis">
-      <div class="kpi k1"><div class="label">총 과제 수</div><div class="value" id="kpiCount">-</div><div class="sub" id="kpiCountSub"></div></div>
+      <div class="kpi k1"><div class="label">🏢 센터 전체 실적</div><div class="value" id="kpiCenter">-</div><div class="sub" id="kpiCenterSub"></div></div>
       <div class="kpi k2"><div class="label">전산팀 실적</div><div class="value" id="kpiJeonsan">-</div><div class="sub" id="kpiJeonsanSub"></div></div>
       <div class="kpi k3"><div class="label">탄소팀 실적</div><div class="value" id="kpiTanso">-</div><div class="sub" id="kpiTansoSub"></div></div>
       <div class="kpi k4"><div class="label">극저온팀 실적</div><div class="value" id="kpiGeo">-</div><div class="sub" id="kpiGeoSub"></div></div>
     </div>
 
-    <!-- 차트 2종 -->
+    <!-- 차트: 왼쪽 센터 실적현황(도넛) / 오른쪽 팀별 실적 합계(누적 막대) -->
     <div class="grid2">
       <div class="card">
-        <h3>📊 팀별 실적 합계 (당해년도 사업비 / 총 인정실적 / 시험수수료)</h3>
-        <div class="chart-host"><canvas id="chartTeamAmount"></canvas></div>
+        <h3>🥧 센터 실적현황 — 3개 팀 비율</h3>
+        <div class="chart-host"><canvas id="chartCenterShare"></canvas></div>
       </div>
       <div class="card">
-        <h3>📊 팀별 과제 수</h3>
-        <div class="chart-host"><canvas id="chartTeamCount"></canvas></div>
-      </div>
-    </div>
-
-    <!-- 센터 실적현황 -->
-    <div class="card" style="margin-bottom:20px;">
-      <h3>🥧 센터 실적현황 — 3개 팀 합계 및 비율</h3>
-      <div class="grid2" style="margin-bottom:0;">
-        <div class="chart-host" style="height:320px;"><canvas id="chartCenterShare"></canvas></div>
-        <div>
-          <div class="section-title">팀별 실적 합계</div>
-          <div class="team-cards" id="teamShareCards"></div>
-          <div class="team-card" style="margin-top:12px; background:#f9fafb;">
-            <div class="tname">🏢 센터 전체 실적 합계</div>
-            <div class="tval" id="centerTotal">-</div>
-          </div>
-        </div>
+        <h3>📊 팀별 실적 합계 (국가연구개발사업 / 수탁용역 / 시험인증)</h3>
+        <div class="chart-host"><canvas id="chartTeamAmount"></canvas></div>
       </div>
     </div>
 
