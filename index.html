@@ -92,13 +92,14 @@
   .kpi-goal span { color: var(--muted); }
   .kpi-goal b { color: var(--accent); font-weight: 800; }
 
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  /* 차트 3개 가로 배치 */
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
   .card {
     background: var(--card); border: 1px solid var(--line); border-radius: 12px;
     padding: 18px 20px; box-shadow: var(--shadow);
   }
-  .card h3 { margin: 0 0 14px; font-size: 15px; font-weight: 700; }
-  .card .chart-host { position: relative; height: 320px; }
+  .card h3 { margin: 0 0 14px; font-size: 14px; font-weight: 700; }
+  .card .chart-host { position: relative; height: 300px; }
 
   .table-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
   .table-tabs { display: flex; border-bottom: 1px solid var(--line); background: #f9fafb; }
@@ -144,9 +145,11 @@
   }
   tbody tr.total-row:hover td { background: #e0e7ff; }
 
+  @media (max-width: 1024px) {
+    .grid3 { grid-template-columns: 1fr; }
+  }
   @media (max-width: 920px) {
     .kpis { grid-template-columns: repeat(2,1fr); }
-    .grid2 { grid-template-columns: 1fr; }
     .export-box { margin-left: 0; }
   }
 </style>
@@ -188,11 +191,15 @@
         <div class="kpi k4"><div class="label">극저온팀 실적</div><div class="value" id="kpiGeo">-</div><div class="sub" id="kpiGeoSub"></div></div>
       </div>
 
-      <!-- 차트: 왼쪽 센터 실적현황(도넛) / 오른쪽 팀별 실적 합계(누적 막대) -->
-      <div class="grid2">
+      <!-- 차트 3개: 팀 비율 도넛 / 항목 비율 도넛 / 팀별 실적 누적 막대 -->
+      <div class="grid3">
         <div class="card">
           <h3>🥧 센터 실적현황 — 3개 팀 비율</h3>
           <div class="chart-host"><canvas id="chartCenterShare"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>🍩 센터 실적현황 — 사업 항목 비율</h3>
+          <div class="chart-host"><canvas id="chartSheetShare"></canvas></div>
         </div>
         <div class="card">
           <h3>📊 팀별 실적 합계 (국가연구개발사업 / 수탁용역 / 시험인증)</h3>
