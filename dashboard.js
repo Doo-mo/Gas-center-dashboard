@@ -39,13 +39,11 @@
     if (typeof v === "number") return isFinite(v) ? v : 0;
     let s = String(v).trim();
     if (s === "") return 0;
-    // 콤마, 원, 공백, 통화기호 제거
     s = s.replace(/[,\s₩원]/g, "");
-    // 괄호 음수 표기 (1,000) -> -1000
     let neg = false;
     if (/^\(.*\)$/.test(s)) { neg = true; s = s.replace(/[()]/g, ""); }
     const n = parseFloat(s);
-    if (!isFinite(n)) return 0; // 미정/협약전/미승금/- 등 전부 0
+    if (!isFinite(n)) return 0;
     return neg ? -n : n;
   }
 
@@ -66,11 +64,10 @@
   }
 
   // ---- 헤더 행 자동 탐지 -------------------------------------------------
-  // 시트를 2차원 배열로 받아, keywords가 가장 많이 매칭되는 행을 헤더로 본다.
   function findHeaderRow(rows, keywords) {
     const keys = keywords.map(norm);
     let best = -1, bestScore = 0;
-    const scanTo = Math.min(rows.length, 15); // 상위 15행만 탐색
+    const scanTo = Math.min(rows.length, 15);
     for (let i = 0; i < scanTo; i++) {
       const cells = (rows[i] || []).map(norm);
       let score = 0;
@@ -81,7 +78,6 @@
   }
 
   // ---- 헤더에서 컬럼 인덱스 찾기 ----------------------------------------
-  // 병합셀로 인해 같은 키워드가 여러 곳일 수 있으므로 includes 매칭.
   function colIndex(headerRow, candidates) {
     const cells = headerRow.map(norm);
     for (const cand of candidates) {
@@ -106,8 +102,6 @@
   // ======================================================================
   //  시트별 파서
   // ======================================================================
-
-  // 국가연구개발사업
   function parseNRND(aoa) {
     const hKeywords = ["순번", "구분", "팀", "과제명", "주관기관", "역할", "당해년도", "사업비", "진행상태"];
     const hRow = findHeaderRow(aoa, hKeywords);
@@ -122,8 +116,6 @@
     const cRole = colIndex(header, ["역할"]);
     const cState = colIndex(header, ["진행상태"]);
 
-    // "당해년도 사업비" 블록의 합계 컬럼 찾기.
-    // 2단 헤더이므로 헤더행 + 다음 행을 합쳐 "합계" 위치를 추정.
     const sub = aoa[hRow + 1] || [];
     let cAmount = findAmountSumColumn(header, sub, "당해년도", "사업비");
 
@@ -135,7 +127,6 @@
       if (isTotalRow(joined)) continue;
       const title = cTitle >= 0 ? row[cTitle] : "";
       const team = normTeam(cTeam >= 0 ? row[cTeam] : "");
-      // 과제명과 팀이 모두 비면 잡음행으로 간주
       if (!String(title || "").trim() && !team) continue;
 
       out.push({
@@ -154,7 +145,6 @@
     return out;
   }
 
-  // 수탁용역
   function parseService(aoa) {
     const hKeywords = ["시험", "용역항목", "시험사료명", "담당", "총입금액", "인정실적", "담당팀"];
     const hRow = findHeaderRow(aoa, hKeywords);
@@ -166,7 +156,6 @@
     const cPerson = colIndex(header, ["담당"]);
     const cTeam = colIndex(header, ["담당팀"]);
     const cNote = colIndex(header, ["비고"]);
-    // 총 인정실적(A+B)
     let cPerf = colIndex(header, ["총인정실적", "인정실적"]);
     if (cPerf < 0) cPerf = colIndex(sub, ["총인정실적", "인정실적"]);
 
@@ -193,7 +182,6 @@
     return out;
   }
 
-  // 시험인증 (전부 극저온 팀)
   function parseCert(aoa) {
     const hKeywords = ["연번", "업체명", "용역기간", "시험", "담당", "총입금실적", "시험수수료", "재료비"];
     const hRow = findHeaderRow(aoa, hKeywords);
@@ -206,7 +194,6 @@
     const cName = colIndex(header, ["시험사료명용역계약명", "용역계약명"]);
     const cPerson = colIndex(header, ["담당"]);
     const cNote = colIndex(header, ["비고"]);
-    // 시험수수료(A) [인정 실적]
     const cFee = colIndex(header, ["시험수수료"]);
 
     const out = [];
@@ -239,29 +226,22 @@
     return keys.some(k => cells.some(c => c.includes(norm(k))));
   }
 
-  // "당해년도 / 사업비" 블록에서 합계 컬럼 인덱스 추정
   function findAmountSumColumn(header, sub, blockKw1, blockKw2) {
     const H = header.map(norm);
     const S = sub.map(norm);
-    // 1순위: 서브헤더에서 "합계"이면서 같은 블록 범위
-    // 블록 시작 = header에 blockKw가 등장하는 컬럼
     let blockStart = -1, blockEnd = header.length;
     for (let i = 0; i < H.length; i++) {
       if (H[i].includes(norm(blockKw1)) || H[i].includes(norm(blockKw2))) { blockStart = i; break; }
     }
-    // "입금기준" 블록 시작 전까지를 당해년도 블록으로 제한
     for (let i = (blockStart >= 0 ? blockStart + 1 : 0); i < H.length; i++) {
       if (H[i].includes("입금") || H[i].includes("실적")) { blockEnd = i; break; }
     }
-    // 서브헤더에서 합계 찾기
     for (let i = Math.max(blockStart, 0); i < blockEnd; i++) {
       if (S[i] && S[i].includes("합계")) return i;
     }
-    // 2순위: 헤더 자체에 "합계"
     for (let i = Math.max(blockStart, 0); i < blockEnd; i++) {
       if (H[i] && H[i].includes("합계")) return i;
     }
-    // 3순위: 블록 내 인건비/간접비를 찾아 그 다음 칸을 합계로 추정
     let lastFee = -1;
     for (let i = Math.max(blockStart, 0); i < blockEnd; i++) {
       if (S[i] && (S[i].includes("인건비") || S[i].includes("간접비"))) lastFee = i;
@@ -270,14 +250,13 @@
     return -1;
   }
 
-  // 팀명 정규화
   function normTeam(v) {
     const s = norm(v);
     if (!s) return "";
     if (s.includes("전산")) return "전산";
     if (s.includes("탄소")) return "탄소";
     if (s.includes("극저온") || s.includes("저온")) return "극저온";
-    return ""; // 알 수 없는 팀은 빈값 (집계에서 제외)
+    return "";
   }
 
   // ======================================================================
@@ -335,7 +314,6 @@
   }
 
   function allRowsForAgg() {
-    // 구분 필터는 국가연구개발사업에만 적용, 나머지는 항상 포함
     return [].concat(getFilteredNRND(), RAW["수탁용역"], RAW["시험인증"]);
   }
 
@@ -343,7 +321,6 @@
     const rows = allRowsForAgg();
     const amountByTeam = { "전산": 0, "탄소": 0, "극저온": 0 };
     const countByTeam = { "전산": 0, "탄소": 0, "극저온": 0 };
-    // 시트(사업구분) × 팀 별 금액 매트릭스
     const amountByTeamSheet = {
       "전산": { "국가연구개발사업": 0, "수탁용역": 0, "시험인증": 0 },
       "탄소": { "국가연구개발사업": 0, "수탁용역": 0, "시험인증": 0 },
@@ -367,24 +344,52 @@
   function render() {
     const agg = aggregate();
 
-    // KPI
-    setText("kpiCount", agg.count.toLocaleString("ko-KR") + "건");
-    setText("kpiCountSub",
-      "전산 " + agg.countByTeam["전산"] + " · 탄소 " + agg.countByTeam["탄소"] + " · 극저온 " + agg.countByTeam["극저온"]);
-    setText("kpiJeonsan", fmtShort(agg.amountByTeam["전산"]) + "원");
-    setText("kpiJeonsanSub", fmt(agg.amountByTeam["전산"]));
-    setText("kpiTanso", fmtShort(agg.amountByTeam["탄소"]) + "원");
-    setText("kpiTansoSub", fmt(agg.amountByTeam["탄소"]));
-    setText("kpiGeo", fmtShort(agg.amountByTeam["극저온"]) + "원");
-    setText("kpiGeoSub", fmt(agg.amountByTeam["극저온"]));
+    // KPI: 센터 전체 실적 + 팀별 실적(항목별 내역 포함)
+    setText("kpiCenter", fmtShort(agg.total) + "원");
+    setText("kpiCenterSub", "총 " + agg.count.toLocaleString("ko-KR") + "건");
 
-    drawTeamAmount(agg);
-    drawTeamCount(agg);
+    renderTeamKpi("Jeonsan", "전산", agg);
+    renderTeamKpi("Tanso", "탄소", agg);
+    renderTeamKpi("Geo", "극저온", agg);
+
     drawCenterShare(agg);
-    renderShareCards(agg);
-    setText("centerTotal", fmt(agg.total));
+    drawTeamAmount(agg);
 
     renderTable(currentTab);
+  }
+
+  // 팀 KPI 카드: 총액 + 국가/수탁/시험 항목별 금액
+  function renderTeamKpi(suffix, team, agg) {
+    setText("kpi" + suffix, fmtShort(agg.amountByTeam[team]) + "원");
+    const bd = agg.amountByTeamSheet[team];
+    const host = document.getElementById("kpi" + suffix + "Sub");
+    if (!host) return;
+    host.innerHTML =
+      '<div class="kpi-bd"><span>국가연구개발사업</span><b>' + fmt(bd["국가연구개발사업"]) + '</b></div>' +
+      '<div class="kpi-bd"><span>수탁용역</span><b>' + fmt(bd["수탁용역"]) + '</b></div>' +
+      '<div class="kpi-bd"><span>시험인증</span><b>' + fmt(bd["시험인증"]) + '</b></div>';
+  }
+
+  // 센터 실적현황 (도넛)
+  function drawCenterShare(agg) {
+    const vals = TEAMS.map(t => Math.round(agg.amountByTeam[t]));
+    const sum = vals.reduce((a, b) => a + b, 0);
+    upsertChart("chartCenterShare", "doughnut", {
+      labels: TEAMS.map(t => t + "팀"),
+      datasets: [{
+        data: vals,
+        backgroundColor: TEAMS.map(t => TEAM_COLORS[t]),
+        borderWidth: 2, borderColor: "#fff"
+      }]
+    }, {
+      plugins: {
+        legend: { position: "bottom" },
+        tooltip: { callbacks: { label: c => {
+          const pct = sum > 0 ? ((c.parsed / sum) * 100).toFixed(1) : "0.0";
+          return c.label + ": " + fmt(c.parsed) + " (" + pct + "%)";
+        } } }
+      }
+    });
   }
 
   // 팀별 실적 합계 — 시트(사업구분)별 누적 막대그래프
@@ -402,9 +407,12 @@
       labels: TEAMS,
       datasets: datasets
     }, {
+      interaction: { mode: "index", intersect: false },
       plugins: {
         legend: { position: "bottom" },
         tooltip: {
+          mode: "index",
+          intersect: false,
           callbacks: {
             label: c => c.dataset.label + ": " + fmt(c.parsed.y),
             footer: items => {
@@ -421,56 +429,6 @@
         y: { stacked: true, beginAtZero: true, ticks: { callback: v => fmtShort(v) } }
       }
     });
-  }
-
-  function drawTeamCount(agg) {
-    upsertChart("chartTeamCount", "bar", {
-      labels: TEAMS,
-      datasets: [{
-        label: "과제 수",
-        data: TEAMS.map(t => agg.countByTeam[t]),
-        backgroundColor: TEAMS.map(t => TEAM_COLORS[t]),
-        borderRadius: 6
-      }]
-    }, {
-      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y + "건" } } },
-      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-    });
-  }
-
-  function drawCenterShare(agg) {
-    const vals = TEAMS.map(t => Math.round(agg.amountByTeam[t]));
-    const sum = vals.reduce((a, b) => a + b, 0);
-    upsertChart("chartCenterShare", "doughnut", {
-      labels: TEAMS,
-      datasets: [{
-        data: vals,
-        backgroundColor: TEAMS.map(t => TEAM_COLORS[t]),
-        borderWidth: 2, borderColor: "#fff"
-      }]
-    }, {
-      plugins: {
-        legend: { position: "bottom" },
-        tooltip: { callbacks: { label: c => {
-          const pct = sum > 0 ? ((c.parsed / sum) * 100).toFixed(1) : "0.0";
-          return c.label + ": " + fmt(c.parsed) + " (" + pct + "%)";
-        } } }
-      }
-    });
-  }
-
-  function renderShareCards(agg) {
-    const host = document.getElementById("teamShareCards");
-    const sum = TEAMS.reduce((a, t) => a + agg.amountByTeam[t], 0);
-    host.innerHTML = TEAMS.map(t => {
-      const v = agg.amountByTeam[t];
-      const pct = sum > 0 ? ((v / sum) * 100).toFixed(1) : "0.0";
-      return '<div class="team-card">' +
-        '<div class="tname"><span class="dot" style="background:' + TEAM_COLORS[t] + '"></span>' + t + '팀</div>' +
-        '<div class="tval">' + fmt(v) + '</div>' +
-        '<div class="tpct">센터 비중 ' + pct + '%</div>' +
-        '</div>';
-    }).join("");
   }
 
   // ---- 표 ---------------------------------------------------------------
@@ -522,7 +480,6 @@
         html += "</tr>";
       });
 
-      // ---- 합계 행 추가 (금액 컬럼 총합) ----
       const sumVal = data.reduce((acc, d) => acc + toNum(d.실적), 0);
       const numColIdx = cols.findIndex(c => c.num);
       html += '<tr class="total-row">';
