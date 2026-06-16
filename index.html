@@ -178,27 +178,30 @@
   </div>
 
   <div id="dash" style="display:none;">
-    <!-- KPI: 센터 실적(항목별 내역) + 팀별 실적(항목별 내역) -->
-    <div class="kpis">
-      <div class="kpi k1"><div class="label">🏢 센터 전체 실적</div><div class="value" id="kpiCenter">-</div><div class="sub" id="kpiCenterSub"></div></div>
-      <div class="kpi k2"><div class="label">전산팀 실적</div><div class="value" id="kpiJeonsan">-</div><div class="sub" id="kpiJeonsanSub"></div></div>
-      <div class="kpi k3"><div class="label">탄소팀 실적</div><div class="value" id="kpiTanso">-</div><div class="sub" id="kpiTansoSub"></div></div>
-      <div class="kpi k4"><div class="label">극저온팀 실적</div><div class="value" id="kpiGeo">-</div><div class="sub" id="kpiGeoSub"></div></div>
+    <!-- 캡처/PDF 대상 영역: KPI + 차트까지만 (하단 표 제외) -->
+    <div id="captureArea">
+      <!-- KPI: 센터 실적(항목별 내역) + 팀별 실적(항목별 내역) -->
+      <div class="kpis">
+        <div class="kpi k1"><div class="label">🏢 센터 전체 실적</div><div class="value" id="kpiCenter">-</div><div class="sub" id="kpiCenterSub"></div></div>
+        <div class="kpi k2"><div class="label">전산팀 실적</div><div class="value" id="kpiJeonsan">-</div><div class="sub" id="kpiJeonsanSub"></div></div>
+        <div class="kpi k3"><div class="label">탄소팀 실적</div><div class="value" id="kpiTanso">-</div><div class="sub" id="kpiTansoSub"></div></div>
+        <div class="kpi k4"><div class="label">극저온팀 실적</div><div class="value" id="kpiGeo">-</div><div class="sub" id="kpiGeoSub"></div></div>
+      </div>
+
+      <!-- 차트: 왼쪽 센터 실적현황(도넛) / 오른쪽 팀별 실적 합계(누적 막대) -->
+      <div class="grid2">
+        <div class="card">
+          <h3>🥧 센터 실적현황 — 3개 팀 비율</h3>
+          <div class="chart-host"><canvas id="chartCenterShare"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>📊 팀별 실적 합계 (국가연구개발사업 / 수탁용역 / 시험인증)</h3>
+          <div class="chart-host"><canvas id="chartTeamAmount"></canvas></div>
+        </div>
+      </div>
     </div>
 
-    <!-- 차트: 왼쪽 센터 실적현황(도넛) / 오른쪽 팀별 실적 합계(누적 막대) -->
-    <div class="grid2">
-      <div class="card">
-        <h3>🥧 센터 실적현황 — 3개 팀 비율</h3>
-        <div class="chart-host"><canvas id="chartCenterShare"></canvas></div>
-      </div>
-      <div class="card">
-        <h3>📊 팀별 실적 합계 (국가연구개발사업 / 수탁용역 / 시험인증)</h3>
-        <div class="chart-host"><canvas id="chartTeamAmount"></canvas></div>
-      </div>
-    </div>
-
-    <!-- 전체 목록 -->
+    <!-- 전체 목록 (캡처/PDF 제외) -->
     <div class="table-card">
       <div class="table-tabs" id="tableTabs">
         <button class="active" data-sheet="국가연구개발사업">국가연구개발사업</button>
