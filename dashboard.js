@@ -9,7 +9,8 @@
   const TEAM_BADGE = { "전산": "b-jeonsan", "탄소": "b-tanso", "극저온": "b-geo" };
 
   const SHEETS = ["국가연구개발사업", "수탁용역", "시험인증"];
-  const SHEET_COLORS = { "국가연구개발사업": "#3b82f6", "수탁용역": "#f59e0b", "시험인증": "#10b981" };
+  // 팀 도넛(주황/초록/파랑)과 구분되는 색: 인디고 / 로즈 / 틸
+  const SHEET_COLORS = { "국가연구개발사업": "#6366f1", "수탁용역": "#ec4899", "시험인증": "#14b8a6" };
 
   let RAW = { "국가연구개발사업": [], "수탁용역": [], "시험인증": [] };
   let currentGubun = "전체";
@@ -365,7 +366,13 @@
           mode: "index",
           intersect: false,
           callbacks: {
-            label: c => c.dataset.label + ": " + fmt(c.parsed.y),
+            label: c => {
+              const t = TEAMS[c.dataIndex];
+              const teamTotal = agg.amountByTeam[t] || 0;
+              const v = c.parsed.y || 0;
+              const pct = teamTotal > 0 ? ((v / teamTotal) * 100).toFixed(1) : "0.0";
+              return c.dataset.label + ": " + fmt(v) + " (" + pct + "%)";
+            },
             footer: items => {
               const teamIdx = items.length ? items[0].dataIndex : -1;
               if (teamIdx < 0) return "";
