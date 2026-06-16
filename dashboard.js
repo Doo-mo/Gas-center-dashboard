@@ -82,7 +82,6 @@
       for (let c = 0; c < row.length; c++) {
         const cell = norm(row[c]);
         if (cell && (cell.includes(KEY) || (cell.includes("운용자금") && cell.includes("목표")))) {
-          // 1) 바로 아래 칸들을 확인 (같은 열 + 좌우 1칸) → 첫 양수 숫자
           for (let dr = 1; dr <= 3; dr++) {
             const below = aoa[r + dr] || [];
             for (const cc of [c, c + 1, c - 1]) {
@@ -91,7 +90,6 @@
               if (val > 0) return val;
             }
           }
-          // 2) 같은 행 오른쪽 칸들도 확인 (병합/가로배치 대비)
           for (let cc = c + 1; cc < row.length; cc++) {
             const val = toNum(row[cc]);
             if (val > 0) return val;
@@ -335,7 +333,6 @@
         '<div class="kpi-bd"><span>국가연구개발사업</span><b>' + fmt(agg.amountBySheet["국가연구개발사업"]) + '</b></div>' +
         '<div class="kpi-bd"><span>수탁용역</span><b>' + fmt(agg.amountBySheet["수탁용역"]) + '</b></div>' +
         '<div class="kpi-bd"><span>시험인증</span><b>' + fmt(agg.amountBySheet["시험인증"]) + '</b></div>';
-      // 목표금액 + 달성률 (목표를 찾았을 때만 표시)
       if (GOAL > 0) {
         const rate = (agg.total / GOAL) * 100;
         h += '<div class="kpi-goal"><span>목표금액</span><b>' + fmt(GOAL) + '</b></div>' +
@@ -347,6 +344,7 @@
     renderTeamKpi("Tanso", "탄소", agg);
     renderTeamKpi("Geo", "극저온", agg);
     drawCenterShare(agg);
+    drawSheetShare(agg);
     drawTeamAmount(agg);
     renderTable(currentTab);
   }
@@ -362,7 +360,7 @@
       '<div class="kpi-bd"><span>시험인증</span><b>' + fmt(bd["시험인증"]) + '</b></div>';
   }
 
-  // 도넛 가운데에 달성률 텍스트를 그리는 플러그인
+  // 도넛 가운데에 텍스트를 그리는 플러그인
   const centerTextPlugin = {
     id: "centerText",
     afterDraw(chart) {
@@ -387,11 +385,11 @@
     }
   };
 
+  // 1) 팀 비율 도넛 (가운데: 목표 달성률 또는 센터 합계)
   function drawCenterShare(agg) {
     const vals = TEAMS.map(t => Math.round(agg.amountByTeam[t]));
     const sum = vals.reduce((a, b) => a + b, 0);
 
-    // 도넛 가운데 텍스트: 목표를 찾았으면 달성률, 못 찾았으면 센터 합계
     let centerLines;
     if (GOAL > 0) {
       const rate = (agg.total / GOAL) * 100;
@@ -427,6 +425,37 @@
     }, [centerTextPlugin]);
   }
 
+  // 2) 사업 항목 비율 도넛 (국가/수탁/시험)
+  function drawSheetShare(agg) {
+    const vals = SHEETS.map(sh => Math.round(agg.amountBySheet[sh]));
+    const sum = vals.reduce((a, b) => a + b, 0);
+
+    const centerLines = [
+      { text: "센터 합계", color: "#6b7280", font: "12px 'Malgun Gothic', sans-serif", lineHeight: 22 },
+      { text: fmtShort(sum) + "원", color: "#1f2937", font: "800 22px 'Malgun Gothic', sans-serif", lineHeight: 22 }
+    ];
+
+    upsertChart("chartSheetShare", "doughnut", {
+      labels: SHEETS,
+      datasets: [{
+        data: vals,
+        backgroundColor: SHEETS.map(sh => SHEET_COLORS[sh]),
+        borderWidth: 2, borderColor: "#fff"
+      }]
+    }, {
+      cutout: "62%",
+      plugins: {
+        legend: { position: "bottom" },
+        centerText: { lines: centerLines },
+        tooltip: { callbacks: { label: c => {
+          const pct = sum > 0 ? ((c.parsed / sum) * 100).toFixed(1) : "0.0";
+          return c.label + ": " + fmt(c.parsed) + " (" + pct + "%)";
+        } } }
+      }
+    }, [centerTextPlugin]);
+  }
+
+  // 3) 팀별 실적 누적 막대 (가로축 라벨: ~팀)
   function drawTeamAmount(agg) {
     const datasets = SHEETS.map(sh => ({
       label: sh,
@@ -437,7 +466,7 @@
       stack: "amount"
     }));
     upsertChart("chartTeamAmount", "bar", {
-      labels: TEAMS,
+      labels: TEAMS.map(t => t + "팀"),
       datasets: datasets
     }, {
       interaction: { mode: "index", intersect: false },
@@ -516,7 +545,6 @@
     const cols = TABLE_COLS[sheet];
     const data = RAW[sheet] || [];
 
-    // colgroup으로 열 너비 지정
     let html = "<table><colgroup>";
     cols.forEach(c => { html += c.w ? ('<col style="width:' + c.w + 'px;">') : "<col>"; });
     html += "</colgroup><thead><tr>";
@@ -526,7 +554,6 @@
     if (!data.length) {
       html += '<tr><td colspan="' + cols.length + '" style="text-align:center;color:#9ca3af;padding:24px;">표시할 데이터가 없습니다.</td></tr>';
     } else {
-      // 합계 행 (맨 위)
       const sumVal = data.reduce((acc, d) => acc + toNum(d.실적), 0);
       const numColIdx = cols.findIndex(c => c.num);
       html += '<tr class="total-row">';
@@ -543,7 +570,6 @@
       });
       html += "</tr>";
 
-      // 데이터 행
       data.forEach(d => {
         html += "<tr>";
         cols.forEach(c => {
@@ -585,7 +611,7 @@
   function showError(msg) { document.getElementById("errBox").innerHTML = '<div class="err">' + escapeHtml(msg) + "</div>"; }
   function clearError() { document.getElementById("errBox").innerHTML = ""; }
 
-  // 캡처/PDF용: 대시보드 영역을 캔버스로 렌더
+  // 캡처/PDF용: 표 위쪽(captureArea)만 캔버스로 렌더
   function captureDash() {
     const area = document.getElementById("captureArea");
     return html2canvas(area, { scale: 2, backgroundColor: "#f4f6fa", useCORS: true });
@@ -621,7 +647,6 @@
     captureDash().then(canvas => {
       const imgData = canvas.toDataURL("image/png");
       const { jsPDF } = window.jspdf;
-      // 가로 A4, mm 단위
       const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
@@ -630,14 +655,11 @@
       const imgH = (canvas.height * usableW) / canvas.width;
 
       if (imgH <= pageH - margin * 2) {
-        // 한 페이지에 들어감
         pdf.addImage(imgData, "PNG", margin, margin, usableW, imgH);
       } else {
-        // 길면 여러 페이지로 분할
         let remainingH = imgH;
         let position = margin;
         const pageContentH = pageH - margin * 2;
-        // 페이지별로 잘라서 추가
         while (remainingH > 0) {
           pdf.addImage(imgData, "PNG", margin, position, usableW, imgH);
           remainingH -= pageContentH;
