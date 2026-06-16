@@ -447,8 +447,8 @@
         if (c.num) {
           html += '<td class="num">' + fmt(sumVal) + "</td>";
         } else if (idx === 0) {
-          html += '<td class="center" style="white-space:nowrap;">총 ' + data.length + '건</td>';        } else if (idx === numColIdx - 1) {
-          html += '<td class="center" style="white-space:nowrap;">총계</td>';
+          html += '<td class="center" style="white-space:nowrap;">총 ' + data.length + '건</td>';
+        } else if (idx === numColIdx - 1) {          html += '<td class="center" style="white-space:nowrap;">총계</td>';
         } else {
           html += '<td class="center"></td>';
         }
