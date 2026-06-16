@@ -123,7 +123,14 @@
   .b-etc { background: #f3f4f6; color: #4b5563; }
 
   .err { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 14px 18px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; white-space: pre-line; }
-
+  /* 합계 행 강조 */
+  tbody tr.total-row td {
+    background: #eef2ff;
+    border-top: 2px solid #c7d2fe;
+    font-weight: 800;
+    color: #1e3a8a;
+  }
+  tbody tr.total-row:hover td { background: #e0e7ff; }
   .section-title { font-size: 14px; font-weight: 700; color: var(--muted); margin: 4px 0 12px; }
 
   @media (max-width: 920px) {
