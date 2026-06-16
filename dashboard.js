@@ -14,7 +14,6 @@
 
   let RAW = { "국가연구개발사업": [], "수탁용역": [], "시험인증": [] };
   let GOAL = 0; // 운용자금 목표금액 ('분기별 보고' 시트에서 자동 탐지). 못 찾으면 0
-  let currentGubun = "전체";
   let currentTab = "국가연구개발사업";
   const charts = {};
 
@@ -287,7 +286,7 @@
         }
         document.getElementById("hint").style.display = "none";
         document.getElementById("dash").style.display = "block";
-        document.getElementById("filterBox").style.display = "flex";
+        document.getElementById("exportBox").style.display = "flex";
         render();
       } catch (err) {
         showError("엑셀 파일을 읽는 중 오류가 발생했습니다.\n" + (err && err.message ? err.message : err));
@@ -297,13 +296,8 @@
     reader.readAsArrayBuffer(file);
   }
 
-  function getFilteredNRND() {
-    if (currentGubun === "전체") return RAW["국가연구개발사업"];
-    return RAW["국가연구개발사업"].filter(d => norm(d.구분) === norm(currentGubun));
-  }
-
   function allRowsForAgg() {
-    return [].concat(getFilteredNRND(), RAW["수탁용역"], RAW["시험인증"]);
+    return [].concat(RAW["국가연구개발사업"], RAW["수탁용역"], RAW["시험인증"]);
   }
 
   function aggregate() {
@@ -382,7 +376,6 @@
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       const lines = opt.lines;
-      // 줄 간격 계산
       let offsetY = -(lines.length - 1) * 11;
       lines.forEach(ln => {
         ctx.fillStyle = ln.color || "#1f2937";
@@ -521,8 +514,7 @@
 
   function renderTable(sheet) {
     const cols = TABLE_COLS[sheet];
-    let data = RAW[sheet] || [];
-    if (sheet === "국가연구개발사업") data = getFilteredNRND();
+    const data = RAW[sheet] || [];
 
     // colgroup으로 열 너비 지정
     let html = "<table><colgroup>";
@@ -593,6 +585,76 @@
   function showError(msg) { document.getElementById("errBox").innerHTML = '<div class="err">' + escapeHtml(msg) + "</div>"; }
   function clearError() { document.getElementById("errBox").innerHTML = ""; }
 
+  // 캡처/PDF용: 대시보드 영역을 캔버스로 렌더
+  function captureDash() {
+    const dash = document.getElementById("dash");
+    return html2canvas(dash, { scale: 2, backgroundColor: "#f4f6fa", useCORS: true });
+  }
+  function todayStr() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, "0");
+    return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate());
+  }
+  function setBusy(busy) {
+    ["btnCapture", "btnPdf"].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) b.disabled = busy;
+    });
+  }
+
+  function exportImage() {
+    setBusy(true);
+    captureDash().then(canvas => {
+      const link = document.createElement("a");
+      link.download = "가스연료기술센터_대시보드_" + todayStr() + ".png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+      setBusy(false);
+    }).catch(err => {
+      showError("화면 캡처 중 오류가 발생했습니다.\n" + (err && err.message ? err.message : err));
+      setBusy(false);
+    });
+  }
+
+  function exportPdf() {
+    setBusy(true);
+    captureDash().then(canvas => {
+      const imgData = canvas.toDataURL("image/png");
+      const { jsPDF } = window.jspdf;
+      // 가로 A4, mm 단위
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const margin = 8;
+      const usableW = pageW - margin * 2;
+      const imgH = (canvas.height * usableW) / canvas.width;
+
+      if (imgH <= pageH - margin * 2) {
+        // 한 페이지에 들어감
+        pdf.addImage(imgData, "PNG", margin, margin, usableW, imgH);
+      } else {
+        // 길면 여러 페이지로 분할
+        let remainingH = imgH;
+        let position = margin;
+        const pageContentH = pageH - margin * 2;
+        // 페이지별로 잘라서 추가
+        while (remainingH > 0) {
+          pdf.addImage(imgData, "PNG", margin, position, usableW, imgH);
+          remainingH -= pageContentH;
+          if (remainingH > 0) {
+            pdf.addPage();
+            position = margin - (imgH - remainingH);
+          }
+        }
+      }
+      pdf.save("가스연료기술센터_대시보드_" + todayStr() + ".pdf");
+      setBusy(false);
+    }).catch(err => {
+      showError("PDF 내보내기 중 오류가 발생했습니다.\n" + (err && err.message ? err.message : err));
+      setBusy(false);
+    });
+  }
+
   document.getElementById("fileInput").addEventListener("change", function (e) {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
@@ -600,14 +662,8 @@
     handleFile(f);
   });
 
-  document.getElementById("filterBox").addEventListener("click", function (e) {
-    const btn = e.target.closest(".chip");
-    if (!btn) return;
-    currentGubun = btn.getAttribute("data-gubun");
-    document.querySelectorAll("#filterBox .chip").forEach(c => c.classList.remove("active"));
-    btn.classList.add("active");
-    render();
-  });
+  document.getElementById("btnCapture").addEventListener("click", exportImage);
+  document.getElementById("btnPdf").addEventListener("click", exportPdf);
 
   document.getElementById("tableTabs").addEventListener("click", function (e) {
     const btn = e.target.closest("button");
