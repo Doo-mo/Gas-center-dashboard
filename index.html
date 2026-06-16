@@ -6,6 +6,8 @@
 <title>가스연료기술센터 대시보드</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
   :root {
     --bg: #f4f6fa;
@@ -52,16 +54,16 @@
   .file-box input { display: none; }
   #fileName { font-size: 13px; color: var(--muted); }
 
-  .filter-box { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .filter-box .flabel { font-size: 13px; color: var(--muted); font-weight: 600; margin-right: 2px; }
-  .chip {
+  /* 내보내기 버튼 영역 */
+  .export-box { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .btn-export {
+    display: inline-flex; align-items: center; gap: 6px;
     border: 1px solid var(--line); background: #fff; color: var(--ink);
-    padding: 6px 14px; border-radius: 999px; cursor: pointer; font-size: 13px;
-    transition: all .15s;
+    padding: 9px 14px; border-radius: 8px; cursor: pointer;
+    font-size: 13px; font-weight: 600; transition: all .15s;
   }
-  .chip:hover { border-color: var(--accent); }
-  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .filter-note { font-size: 11px; color: var(--muted); }
+  .btn-export:hover { border-color: var(--accent); color: var(--accent); background: #f8fafc; }
+  .btn-export:disabled { opacity: .5; cursor: not-allowed; }
 
   .hint {
     background: #eff6ff; border: 1px dashed #93c5fd; color: #1e40af;
@@ -145,6 +147,7 @@
   @media (max-width: 920px) {
     .kpis { grid-template-columns: repeat(2,1fr); }
     .grid2 { grid-template-columns: 1fr; }
+    .export-box { margin-left: 0; }
   }
 </style>
 </head>
@@ -161,14 +164,9 @@
       <input type="file" id="fileInput" accept=".xlsx,.xls" />
       <span id="fileName">선택된 파일 없음</span>
     </div>
-    <div class="filter-box" id="filterBox" style="display:none;">
-      <span class="flabel">🔎 구분</span>
-      <button class="chip active" data-gubun="전체">전체</button>
-      <button class="chip" data-gubun="기존">기존</button>
-      <button class="chip" data-gubun="연장">연장</button>
-      <button class="chip" data-gubun="신규">신규</button>
-      <button class="chip" data-gubun="기획">기획</button>
-      <span class="filter-note">* 구분 필터는 국가연구개발사업에만 적용됩니다</span>
+    <div class="export-box" id="exportBox" style="display:none;">
+      <button class="btn-export" id="btnCapture">🖼️ 화면 캡처</button>
+      <button class="btn-export" id="btnPdf">📄 PDF 내보내기</button>
     </div>
   </div>
 
