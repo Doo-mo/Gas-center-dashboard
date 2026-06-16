@@ -82,7 +82,7 @@
   .kpi.k2 { border-top: 3px solid var(--jeonsan); }
   .kpi.k3 { border-top: 3px solid var(--tanso); }
   .kpi.k4 { border-top: 3px solid var(--geo); }
-  /* 팀 KPI 항목별 내역 */
+  /* KPI 항목별 내역 */
   .kpi-bd { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--muted); margin-top: 5px; line-height: 1.4; }
   .kpi-bd b { color: var(--ink); font-weight: 700; }
 
@@ -101,26 +101,31 @@
     font-size: 14px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent;
   }
   .table-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); background: #fff; }
-  .table-scroll { overflow-x: auto; max-height: 520px; overflow-y: auto; }
-  table { border-collapse: collapse; width: 100%; font-size: 12.5px; white-space: nowrap; }
+  .table-scroll { overflow-x: auto; max-height: 560px; overflow-y: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 11.5px; table-layout: fixed; }
   thead th {
-    position: sticky; top: 0; background: #f3f4f6; color: var(--ink);
-    text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); font-weight: 700;
+    position: sticky; top: 0; z-index: 3; background: #f3f4f6; color: var(--ink);
+    text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); font-weight: 700;
+    white-space: nowrap;
   }
-  tbody td { padding: 9px 12px; border-bottom: 1px solid #f1f3f5; }
-  tbody tr:hover { background: #f9fafb; }
-  td.num, th.num { text-align: right; }
+  tbody td { padding: 6px 8px; border-bottom: 1px solid #f1f3f5; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; }
+  tbody tr:hover td { background: #f9fafb; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
 
-  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; white-space: nowrap; }
   .b-jeonsan { background: #fef3c7; color: #92400e; }
   .b-tanso { background: #d1fae5; color: #065f46; }
   .b-geo { background: #dbeafe; color: #1e40af; }
   .b-etc { background: #f3f4f6; color: #4b5563; }
 
   .err { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 14px 18px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; white-space: pre-line; }
+
+  /* 합계 행 — 헤더 바로 아래 고정(sticky) */
   tbody tr.total-row td {
+    position: sticky; top: 33px; z-index: 2;
     background: #eef2ff;
     border-top: 2px solid #c7d2fe;
+    border-bottom: 2px solid #c7d2fe;
     font-weight: 800;
     color: #1e3a8a;
   }
@@ -164,7 +169,7 @@
   </div>
 
   <div id="dash" style="display:none;">
-    <!-- KPI: 센터 실적 + 팀별 실적(항목별 내역) -->
+    <!-- KPI: 센터 실적(항목별 내역) + 팀별 실적(항목별 내역) -->
     <div class="kpis">
       <div class="kpi k1"><div class="label">🏢 센터 전체 실적</div><div class="value" id="kpiCenter">-</div><div class="sub" id="kpiCenterSub"></div></div>
       <div class="kpi k2"><div class="label">전산팀 실적</div><div class="value" id="kpiJeonsan">-</div><div class="sub" id="kpiJeonsanSub"></div></div>
