@@ -679,11 +679,73 @@
     });
   }
 
-  document.getElementById("fileInput").addEventListener("change", function (e) {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    document.getElementById("fileName").textContent = f.name;
-    handleFile(f);
+  const fileInput = document.getElementById("fileInput");
+  const dropZone = document.getElementById("dropZone");
+  const fileName = document.getElementById("fileName");
+  let dragDepth = 0;
+
+  function hasDraggedFiles(e) {
+    return !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files"));
+  }
+
+  function loadDashboardFile(file) {
+    clearError();
+    if (!file || !/\.(xlsx|xls)$/i.test(file.name)) {
+      showError("엑셀 파일(.xlsx 또는 .xls)만 업로드할 수 있습니다.");
+      return;
+    }
+    fileName.textContent = file.name;
+    handleFile(file);
+  }
+
+  function loadFileList(files) {
+    const selected = Array.from(files || []);
+    clearError();
+    if (!selected.length) return;
+    if (selected.length > 1) {
+      showError("엑셀 파일은 한 번에 하나만 업로드할 수 있습니다.");
+      return;
+    }
+    loadDashboardFile(selected[0]);
+  }
+
+  fileInput.addEventListener("change", function (e) {
+    loadFileList(e.target.files);
+    e.target.value = "";
+  });
+
+  dropZone.addEventListener("dragenter", function (e) {
+    if (!hasDraggedFiles(e)) return;
+    e.preventDefault();
+    dragDepth++;
+    dropZone.classList.add("is-dragover");
+  });
+
+  dropZone.addEventListener("dragover", function (e) {
+    if (!hasDraggedFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  });
+
+  dropZone.addEventListener("dragleave", function (e) {
+    if (!hasDraggedFiles(e)) return;
+    e.preventDefault();
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) dropZone.classList.remove("is-dragover");
+  });
+
+  dropZone.addEventListener("drop", function (e) {
+    if (!hasDraggedFiles(e)) return;
+    e.preventDefault();
+    dragDepth = 0;
+    dropZone.classList.remove("is-dragover");
+    loadFileList(e.dataTransfer.files);
+  });
+
+  ["dragover", "drop"].forEach(eventName => {
+    document.addEventListener(eventName, function (e) {
+      if (hasDraggedFiles(e)) e.preventDefault();
+    });
   });
 
   document.getElementById("btnCapture").addEventListener("click", exportImage);
