@@ -43,16 +43,34 @@
     border-radius: 12px; padding: 16px 20px; box-shadow: var(--shadow);
     margin-bottom: 20px;
   }
-  .file-box { display: flex; align-items: center; gap: 10px; }
+  .file-box {
+    display: flex; flex: 1 1 520px; align-items: center; gap: 12px; min-width: 0;
+    background: #f8fbff; border: 2px dashed #bfdbfe; border-radius: 10px; padding: 12px;
+    transition: border-color .15s, background .15s, box-shadow .15s;
+  }
+  .file-box.is-dragover {
+    background: #eff6ff; border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+  }
   .file-box label {
     display: inline-flex; align-items: center; gap: 8px;
     background: var(--accent); color: #fff; padding: 9px 16px;
-    border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;
+    border-radius: 8px; cursor: pointer; flex-shrink: 0; font-size: 14px; font-weight: 600;
     transition: background .15s;
   }
   .file-box label:hover { background: #1d4ed8; }
-  .file-box input { display: none; }
-  #fileName { font-size: 13px; color: var(--muted); }
+  .file-box input {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); clip-path: inset(50%);
+    white-space: nowrap; border: 0;
+  }
+  .file-box:focus-within label { outline: 3px solid rgba(37,99,235,.25); outline-offset: 2px; }
+  .file-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .drop-guide { color: #1e40af; font-size: 13px; font-weight: 600; }
+  #fileName {
+    overflow: hidden; color: var(--muted); font-size: 12px;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
 
   /* 내보내기 버튼 영역 */
   .export-box { display: flex; align-items: center; gap: 8px; margin-left: auto; }
@@ -152,6 +170,9 @@
     .kpis { grid-template-columns: repeat(2,1fr); }
     .export-box { margin-left: 0; }
   }
+  @media (max-width: 560px) {
+    .file-box { align-items: flex-start; flex-direction: column; }
+  }
 </style>
 </head>
 <body>
@@ -162,10 +183,13 @@
 
 <div class="wrap">
   <div class="controls">
-    <div class="file-box">
+    <div class="file-box" id="dropZone">
       <label for="fileInput">📁 엑셀 파일 선택</label>
-      <input type="file" id="fileInput" accept=".xlsx,.xls" />
-      <span id="fileName">선택된 파일 없음</span>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" aria-describedby="dropGuide fileName" />
+      <div class="file-meta">
+        <span class="drop-guide" id="dropGuide">또는 엑셀 파일을 여기에 끌어놓으세요</span>
+        <span id="fileName" aria-live="polite">선택된 파일 없음</span>
+      </div>
     </div>
     <div class="export-box" id="exportBox" style="display:none;">
       <button class="btn-export" id="btnCapture">🖼️ 화면 캡처</button>
@@ -176,7 +200,7 @@
   <div id="errBox"></div>
 
   <div id="hint" class="hint">
-    위의 <b>📁 엑셀 파일 선택</b> 버튼을 눌러 사업 현황 엑셀 파일을 업로드하세요.<br />
+    위의 <b>📁 엑셀 파일 선택</b> 버튼을 누르거나 파일을 업로드 영역에 끌어놓으세요.<br />
     <b>국가연구개발사업</b>, <b>수탁용역</b>, <b>시험인증</b> 시트를 자동으로 읽어 대시보드를 그립니다.
   </div>
 
