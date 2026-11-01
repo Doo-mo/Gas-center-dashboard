@@ -12,8 +12,7 @@
 1. `CLAUDE.md` 를 읽고 프로젝트 개요·명령·규칙을 숙지하세요.
 2. `docs/handoff/PROJECT_CONTEXT.md`, `CURRENT_STATUS.md`, `DECISIONS.md`, `TODO.md` 를 순서대로 읽어 맥락을 파악하세요.
 3. `index.html` 과 `dashboard.js` 의 핵심 구조를 훑어보세요.
-4. `git log --oneline -20` 과 `git branch -a` 로 커밋 이력 및 브랜치 현황을 확인하세요.
-   - 특히 `doo-mo-redesigned-spork` 브랜치가 존재하는지, 또는 이미 병합되었는지 확인해 주세요.
+4. `git log --oneline -20` 과 `git ls-remote --heads origin` 으로 커밋 이력 및 브랜치 현황을 확인하세요.
 5. `CLAUDE.md` 와 `CURRENT_STATUS.md` 에 기록된 가정이 실제 코드와 일치하는지 검증하고, 불일치 사항이 있으면 알려 주세요.
 
 파악이 끝나면:
