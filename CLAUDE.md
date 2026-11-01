@@ -54,7 +54,7 @@ python3 -m http.server 8080
 
 | 라이브러리 | 버전 | 용도 |
 |-----------|------|------|
-| [SheetJS (xlsx)](https://sheetjs.com/) | 0.18.5 | 엑셀 파싱 |
+| [SheetJS (xlsx)](https://sheetjs.com/) | 0.20.3 | 엑셀 파싱 (공식 CDN `cdn.sheetjs.com` — npm/jsDelivr는 0.18.5까지만 있음) |
 | [Chart.js](https://www.chartjs.org/) | 4.4.1 | 차트 렌더링 |
 | [html2canvas](https://html2canvas.hertzen.com/) | 1.4.1 | 화면 캡처 |
 | [jsPDF](https://github.com/parallax/jsPDF) | 2.5.1 | PDF 내보내기 |
