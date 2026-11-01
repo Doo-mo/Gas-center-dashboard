@@ -16,6 +16,11 @@
   let GOAL = 0; // 운용자금 목표금액 ('분기별 보고' 시트에서 자동 탐지). 못 찾으면 0
   let currentTab = "국가연구개발사업";
   const charts = {};
+  // 표 검색·팀 필터·정렬 상태
+  let tableQuery = "";
+  let tableTeam = "";   // "" | "전산" | "탄소" | "극저온" | "미지정"
+  let sortKey = null;
+  let sortDir = 1;      // 1: 오름차순, -1: 내림차순
 
   function toNum(v) {
     if (v === null || v === undefined) return 0;
@@ -68,9 +73,10 @@
     return -1;
   }
 
-  function isTotalRow(rowJoined) {
-    const s = norm(rowJoined);
-    return s.includes("합계") || s.includes("총계") || s.includes("소계") || s === "계";
+  // 칸 하나의 내용 전체가 합계류 단어("합계", "합 계", "총계", "소계(A+B)" 등)일 때만 합계 행으로 봄.
+  // 과제명·비고에 "통합계측", "총계약금액"처럼 글자가 섞인 행은 데이터로 유지.
+  function isTotalRow(row) {
+    return row.some(c => /^(총?합계|총계|소계|누계|계)(\(.*\))?$/.test(norm(c)));
   }
 
   // '분기별 보고' 시트에서 "운용자금 목표금액" 글자를 찾아 그 아래 칸의 숫자를 목표로 읽음
@@ -120,13 +126,15 @@
       const row = aoa[r] || [];
       const joined = row.join("");
       if (!joined.trim()) continue;
-      if (isTotalRow(joined)) continue;
+      if (isTotalRow(row)) continue;
       const title = cTitle >= 0 ? row[cTitle] : "";
-      const team = normTeam(cTeam >= 0 ? row[cTeam] : "");
+      const teamRaw = cTeam >= 0 ? row[cTeam] : "";
+      const team = normTeam(teamRaw);
       if (!String(title || "").trim() && !team) continue;
       out.push({
         구분: String((cGubun >= 0 ? row[cGubun] : "") || "").trim(),
         팀: team,
+        _teamRaw: String(teamRaw || "").trim(),
         관리번호: cMgmt >= 0 ? row[cMgmt] : "",
         사업형태: cType >= 0 ? row[cType] : "",
         과제명: title,
@@ -159,11 +167,13 @@
       const row = aoa[r] || [];
       const joined = row.join("");
       if (!joined.trim()) continue;
-      if (isTotalRow(joined)) continue;
+      if (isTotalRow(row)) continue;
       const name = (cName >= 0 ? row[cName] : "") || (cItem >= 0 ? row[cItem] : "");
       if (!String(name || "").trim()) continue;
+      const teamRaw = cTeam >= 0 ? row[cTeam] : "전산";
       out.push({
-        팀: normTeam(cTeam >= 0 ? row[cTeam] : "전산"),
+        팀: normTeam(teamRaw),
+        _teamRaw: String(teamRaw || "").trim(),
         시험용역항목: cItem >= 0 ? row[cItem] : "",
         과제명: name,
         담당: cPerson >= 0 ? row[cPerson] : "",
@@ -193,7 +203,7 @@
       const row = aoa[r] || [];
       const joined = row.join("");
       if (!joined.trim()) continue;
-      if (isTotalRow(joined)) continue;
+      if (isTotalRow(row)) continue;
       const company = (cCompany >= 0 ? row[cCompany] : "");
       const name = (cName >= 0 ? row[cName] : "") || (cItem >= 0 ? row[cItem] : "");
       if (!String(company || "").trim() && !String(name || "").trim()) continue;
@@ -282,6 +292,7 @@
         if (missing.length) {
           showError("⚠️ 일부 시트를 찾지 못했습니다: " + missing.join(", ") + "\n나머지 시트로 대시보드를 표시합니다.");
         }
+        showTeamNotice();
         document.getElementById("hint").style.display = "none";
         document.getElementById("dash").style.display = "block";
         document.getElementById("exportBox").style.display = "flex";
@@ -296,6 +307,24 @@
 
   function allRowsForAgg() {
     return [].concat(RAW["국가연구개발사업"], RAW["수탁용역"], RAW["시험인증"]);
+  }
+
+  // 팀이 전산/탄소/극저온이 아닌 행(빈칸, "-", "공통" 등) 안내.
+  // 이런 행은 센터 전체 실적에는 들어가지만 팀별 실적에는 빠지므로, 숫자가 안 맞는 이유를 알려줌.
+  function showTeamNotice() {
+    const rows = allRowsForAgg().filter(d => !TEAMS.includes(d.팀));
+    if (!rows.length) return;
+    const sum = rows.reduce((a, d) => a + toNum(d.실적), 0);
+    const MAX = 10;
+    let msg = "⚠️ 팀이 지정되지 않은 행이 " + rows.length + "건 있습니다 (금액 합 " + fmt(sum) + ").\n" +
+      "센터 전체 실적에는 포함되지만 팀별 실적·팀 비율 차트에는 빠집니다. 엑셀의 팀(담당팀) 칸을 확인해주세요.";
+    rows.slice(0, MAX).forEach(d => {
+      const name = String(d.과제명 || "").trim();
+      msg += "\n · " + d._sheet + " | " + (name.length > 30 ? name.slice(0, 30) + "…" : name) +
+        " | " + fmt(toNum(d.실적)) + (d._teamRaw ? " | 팀 칸: " + d._teamRaw : " | 팀 칸: (빈칸)");
+    });
+    if (rows.length > MAX) msg += "\n · 외 " + (rows.length - MAX) + "건";
+    document.getElementById("errBox").insertAdjacentHTML("beforeend", '<div class="notice">' + escapeHtml(msg) + "</div>");
   }
 
   function aggregate() {
@@ -327,6 +356,7 @@
   function render() {
     const agg = aggregate();
     setText("kpiCenter", fmtShort(agg.total) + "원");
+    setText("kpiCenterCnt", agg.count + "건");
     const cHost = document.getElementById("kpiCenterSub");
     if (cHost) {
       let h =
@@ -351,6 +381,7 @@
 
   function renderTeamKpi(suffix, team, agg) {
     setText("kpi" + suffix, fmtShort(agg.amountByTeam[team]) + "원");
+    setText("kpi" + suffix + "Cnt", agg.countByTeam[team] + "건");
     const bd = agg.amountByTeamSheet[team];
     const host = document.getElementById("kpi" + suffix + "Sub");
     if (!host) return;
@@ -543,18 +574,41 @@
     return "center";
   }
 
+  // 표에 보일 행: 팀 필터 → 검색어 → 정렬 순서로 적용
+  function tableRows(sheet, cols) {
+    const q = norm(tableQuery);
+    const rows = (RAW[sheet] || []).filter(d => {
+      if (tableTeam && (TEAMS.includes(d.팀) ? d.팀 : "미지정") !== tableTeam) return false;
+      if (q && !norm(cols.map(c => d[c.k]).join(" ")).includes(q)) return false;
+      return true;
+    });
+    const col = cols.find(c => c.k === sortKey);
+    if (col) {
+      rows.sort((a, b) => col.num
+        ? (toNum(a[col.k]) - toNum(b[col.k])) * sortDir
+        : String(a[col.k] == null ? "" : a[col.k]).localeCompare(String(b[col.k] == null ? "" : b[col.k]), "ko", { numeric: true }) * sortDir);
+    }
+    return rows;
+  }
+
   function renderTable(sheet) {
     const cols = TABLE_COLS[sheet];
-    const data = RAW[sheet] || [];
+    const data = tableRows(sheet, cols);
+    // 좁은 화면에서도 말줄임 열(과제명 등)이 0px로 사라지지 않도록 표 최소 너비 지정 → 넘치면 가로 스크롤
+    const minW = cols.reduce((s, c) => s + (c.w || 220), 0);
 
-    let html = "<table><colgroup>";
+    let html = '<table style="min-width:' + minW + 'px;"><colgroup>';
     cols.forEach(c => { html += c.w ? ('<col style="width:' + c.w + 'px;">') : "<col>"; });
     html += "</colgroup><thead><tr>";
-    cols.forEach(c => { html += '<th class="' + alignClass(c) + '">' + c.h + "</th>"; });
+    cols.forEach(c => {
+      const arrow = sortKey === c.k ? (sortDir > 0 ? " ▲" : " ▼") : "";
+      html += '<th class="' + alignClass(c) + '" data-k="' + c.k + '" title="눌러서 정렬">' + c.h + arrow + "</th>";
+    });
     html += "</tr></thead><tbody>";
 
     if (!data.length) {
-      html += '<tr><td colspan="' + cols.length + '" style="text-align:center;color:#9ca3af;padding:24px;">표시할 데이터가 없습니다.</td></tr>';
+      const msg = (RAW[sheet] || []).length ? "조건에 맞는 항목이 없습니다." : "표시할 데이터가 없습니다.";
+      html += '<tr><td colspan="' + cols.length + '" style="text-align:center;color:#9ca3af;padding:24px;">' + msg + "</td></tr>";
     } else {
       const sumVal = data.reduce((acc, d) => acc + toNum(d.실적), 0);
       const numColIdx = cols.findIndex(c => c.num);
@@ -759,8 +813,34 @@
     const btn = e.target.closest("button");
     if (!btn) return;
     currentTab = btn.getAttribute("data-sheet");
+    sortKey = null; // 탭마다 열이 달라서 정렬은 초기화 (검색어·팀 필터는 유지)
     document.querySelectorAll("#tableTabs button").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
+    renderTable(currentTab);
+  });
+
+  document.getElementById("tableSearch").addEventListener("input", function (e) {
+    tableQuery = e.target.value;
+    renderTable(currentTab);
+  });
+
+  document.getElementById("teamFilter").addEventListener("change", function (e) {
+    tableTeam = e.target.value;
+    renderTable(currentTab);
+  });
+
+  // 헤더 클릭 정렬: 같은 열을 다시 누르면 방향 전환. 금액 열은 큰 금액부터.
+  document.getElementById("tableScroll").addEventListener("click", function (e) {
+    const th = e.target.closest("thead th[data-k]");
+    if (!th) return;
+    const k = th.getAttribute("data-k");
+    if (sortKey === k) {
+      sortDir = -sortDir;
+    } else {
+      sortKey = k;
+      const col = TABLE_COLS[currentTab].find(c => c.k === k);
+      sortDir = col && col.num ? -1 : 1;
+    }
     renderTable(currentTab);
   });
 })();

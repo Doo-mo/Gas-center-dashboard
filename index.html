@@ -96,6 +96,7 @@
     padding: 16px 18px; box-shadow: var(--shadow);
   }
   .kpi .label { font-size: 13px; color: var(--ink); font-weight: 700; margin-bottom: 8px; }
+  .kpi .label .cnt { float: right; font-size: 11px; font-weight: 600; color: var(--muted); }
   .kpi .value { font-size: 22px; font-weight: 800; letter-spacing: -.5px; }
   .kpi .sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
   .kpi.k1 { border-top: 3px solid var(--accent); }
@@ -126,8 +127,14 @@
     font-size: 14px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent;
   }
   .table-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); background: #fff; }
+  .table-tools { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .table-tools input, .table-tools select {
+    padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; background: #fff; color: var(--ink);
+  }
+  .table-tools input { flex: 1 1 200px; min-width: 0; }
   .table-scroll { overflow-x: auto; max-height: 560px; overflow-y: auto; }
-  table { border-collapse: collapse; width: 100%; font-size: 11.5px; table-layout: fixed; }
+  /* separate: 고정(sticky) 행의 테두리가 셀과 함께 움직여, 스크롤 시 아래 행이 틈으로 비치지 않음 */
+  table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 11.5px; table-layout: fixed; }
   thead th {
     position: sticky; top: 0; z-index: 3; background: #f3f4f6; color: var(--ink);
     text-align: center; padding: 7px 8px; border-bottom: 1px solid var(--line); font-weight: 700;
@@ -135,6 +142,8 @@
   }
   thead th:last-child { border-right: none; }
   thead th .th-sub { font-size: 10.5px; font-weight: 600; color: var(--muted); }
+  thead th[data-k] { cursor: pointer; user-select: none; }
+  thead th[data-k]:hover { background: #e5e7eb; }
   tbody td { padding: 6px 8px; border-bottom: 1px solid #f1f3f5; border-right: 1px solid #f1f3f5; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; }
   tbody td:last-child { border-right: none; }
   tbody tr:hover td { background: #f9fafb; }
@@ -152,6 +161,7 @@
   .b-etc { background: #f3f4f6; color: #4b5563; }
 
   .err { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 14px 18px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; white-space: pre-line; }
+  .notice { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 14px 18px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; white-space: pre-line; }
 
   /* 합계 행 — 헤더 바로 아래 고정(sticky) */
   tbody tr.total-row td {
@@ -210,10 +220,10 @@
     <div id="captureArea">
       <!-- KPI: 센터 실적(항목별 내역) + 팀별 실적(항목별 내역) -->
       <div class="kpis">
-        <div class="kpi k1"><div class="label">🏢 센터 전체 실적</div><div class="value" id="kpiCenter">-</div><div class="sub" id="kpiCenterSub"></div></div>
-        <div class="kpi k2"><div class="label">💻 전산팀 실적</div><div class="value" id="kpiJeonsan">-</div><div class="sub" id="kpiJeonsanSub"></div></div>
-        <div class="kpi k3"><div class="label">🌍 탄소팀 실적</div><div class="value" id="kpiTanso">-</div><div class="sub" id="kpiTansoSub"></div></div>
-        <div class="kpi k4"><div class="label">💧 극저온팀 실적</div><div class="value" id="kpiGeo">-</div><div class="sub" id="kpiGeoSub"></div></div>
+        <div class="kpi k1"><div class="label">🏢 센터 전체 실적<span class="cnt" id="kpiCenterCnt"></span></div><div class="value" id="kpiCenter">-</div><div class="sub" id="kpiCenterSub"></div></div>
+        <div class="kpi k2"><div class="label">💻 전산팀 실적<span class="cnt" id="kpiJeonsanCnt"></span></div><div class="value" id="kpiJeonsan">-</div><div class="sub" id="kpiJeonsanSub"></div></div>
+        <div class="kpi k3"><div class="label">🌍 탄소팀 실적<span class="cnt" id="kpiTansoCnt"></span></div><div class="value" id="kpiTanso">-</div><div class="sub" id="kpiTansoSub"></div></div>
+        <div class="kpi k4"><div class="label">💧 극저온팀 실적<span class="cnt" id="kpiGeoCnt"></span></div><div class="value" id="kpiGeo">-</div><div class="sub" id="kpiGeoSub"></div></div>
       </div>
 
       <!-- 차트 3개: 팀 비율 도넛 / 항목 비율 도넛 / 팀별 실적 누적 막대 -->
@@ -239,6 +249,16 @@
         <button class="active" data-sheet="국가연구개발사업">국가연구개발사업</button>
         <button data-sheet="수탁용역">수탁용역</button>
         <button data-sheet="시험인증">시험인증</button>
+      </div>
+      <div class="table-tools">
+        <input type="search" id="tableSearch" placeholder="🔍 검색 (과제명·기관·담당 등)" aria-label="표 검색" />
+        <select id="teamFilter" aria-label="팀 필터">
+          <option value="">전체 팀</option>
+          <option value="전산">전산</option>
+          <option value="탄소">탄소</option>
+          <option value="극저온">극저온</option>
+          <option value="미지정">팀 미지정</option>
+        </select>
       </div>
       <div class="table-scroll" id="tableScroll"></div>
     </div>
