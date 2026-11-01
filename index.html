@@ -134,6 +134,7 @@
     white-space: nowrap; border-right: 1px solid #e5e7eb;
   }
   thead th:last-child { border-right: none; }
+  thead th .th-sub { font-size: 10.5px; font-weight: 600; color: var(--muted); }
   tbody td { padding: 6px 8px; border-bottom: 1px solid #f1f3f5; border-right: 1px solid #f1f3f5; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; }
   tbody td:last-child { border-right: none; }
   tbody tr:hover td { background: #f9fafb; }
@@ -154,7 +155,7 @@
 
   /* 합계 행 — 헤더 바로 아래 고정(sticky) */
   tbody tr.total-row td {
-    position: sticky; top: 33px; z-index: 2;
+    position: sticky; top: var(--thead-h, 33px); z-index: 2;
     background: #eef2ff;
     border-top: 2px solid #c7d2fe;
     border-bottom: 2px solid #c7d2fe;

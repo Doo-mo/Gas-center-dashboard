@@ -514,7 +514,7 @@
       { k: "주관기관명", h: "주관기관명", align: "left", ellip: true, w: 150 },
       { k: "역할", h: "역할", align: "center", w: 60 },
       { k: "진행상태", h: "진행상태", align: "center", w: 78 },
-      { k: "실적", h: "당해년도 사업비 합계", num: true, w: 128 }
+      { k: "실적", h: '<span class="th-sub">(인건비+간접비)</span><br>당해년도 사업비 합계', num: true, w: 128 }
     ],
     "수탁용역": [
       { k: "팀", h: "담당팀", team: true, align: "center", w: 64 },
@@ -593,7 +593,11 @@
       });
     }
     html += "</tbody></table>";
-    document.getElementById("tableScroll").innerHTML = html;
+    const scrollBox = document.getElementById("tableScroll");
+    scrollBox.innerHTML = html;
+    // 헤더가 두 줄이 되면 높이가 바뀌므로, 합계 행 고정 위치를 실제 헤더 높이에 맞춤
+    const th = scrollBox.querySelector("thead th");
+    if (th && th.offsetHeight) scrollBox.style.setProperty("--thead-h", th.offsetHeight + "px");
   }
 
   function upsertChart(canvasId, type, data, options, plugins) {
