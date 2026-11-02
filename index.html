@@ -38,6 +38,7 @@
   header.top p { margin: 4px 0 0; font-size: 13px; opacity: .85; }
   header.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
   header.top .top-text { flex: 1 1 280px; min-width: 0; }
+  header.top .top-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .btn-request {
     flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;
     padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 700; white-space: nowrap;
@@ -201,8 +202,12 @@
     <h1>🏭 대체연료본부 가스연료기술센터 — 사업 현황 대시보드</h1>
     <p>엑셀 파일을 업로드하면 국가연구개발사업 · 수탁용역 · 시험인증 데이터를 분석합니다. (파일은 브라우저에서만 읽으며 어디에도 저장되지 않습니다.)</p>
   </div>
-  <!-- 관리자 요청: 구글 폼을 새 탭으로 엶 (엑셀 데이터는 전송되지 않음) -->
-  <a class="btn-request" href="https://docs.google.com/forms/d/e/1FAIpQLSdTpZNlSbZORS3HtquRsc2n8ePP-DeYB3oN-QclEhudIiEfAA/viewform" target="_blank" rel="noopener noreferrer" title="대시보드 관리자에게 기능 추가·수정 요청 (구글 폼, 새 탭)">💬 요청하기</a>
+  <div class="top-actions">
+    <!-- 관리자 요청: 구글 폼을 새 탭으로 엶 (엑셀 데이터는 전송되지 않음) -->
+    <a class="btn-request" href="https://docs.google.com/forms/d/e/1FAIpQLSdTpZNlSbZORS3HtquRsc2n8ePP-DeYB3oN-QclEhudIiEfAA/viewform" target="_blank" rel="noopener noreferrer" title="대시보드 관리자에게 기능 추가·수정 요청 (구글 폼, 새 탭)">💬 요청하기</a>
+    <!-- 실적 요청 메일: 관리자 전용 Apps Script 웹앱 (액세스 권한 "나만" — 다른 사람은 구글 권한 화면만 보임) -->
+    <a class="btn-request" href="https://script.google.com/macros/s/AKfycbytwf_cQtjJrkZ2_yWlA7sdlDH49fIcbCj18q_Ux6EunNC7zQiviX27MAwD2A7f0PE8fg/exec" target="_blank" rel="noopener noreferrer" title="관리자 전용: 팀장님들께 실적 요청 메일 보내기 (새 탭)">📨 실적 요청 메일 (관리자)</a>
+  </div>
 </header>
 
 <div class="wrap">
