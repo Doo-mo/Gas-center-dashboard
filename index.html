@@ -171,6 +171,58 @@
   .b-etc { background: #f3f4f6; color: #4b5563; }
 
   .err { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 14px 18px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; white-space: pre-line; }
+  /* 모드 선택 */
+  .mode-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .mode-tabs button {
+    flex: 1 1 0; padding: 12px; border: 1px solid var(--line); background: var(--card); border-radius: 10px;
+    font-size: 15px; font-weight: 700; color: var(--muted); cursor: pointer; box-shadow: var(--shadow);
+  }
+  .mode-tabs button.active { color: #fff; background: var(--accent); border-color: var(--accent); }
+
+  /* 변경사항 확인 */
+  #modeDiff .file-box { flex: 1 1 300px; }
+  .diff-fname { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+  .diff-team { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
+  .diff-team select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; background: #fff; }
+  .diff-total { font-size: 15px; margin-bottom: 12px; }
+  .diff-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .diff-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); font-size: 13px; }
+  .diff-card h4 { margin: 0 0 8px; font-size: 14px; }
+  .diff-card .cnt span { margin-right: 10px; }
+  .diff-amt { margin-top: 6px; color: var(--muted); overflow-wrap: anywhere; }
+  .diff-amt b { color: var(--ink); }
+  .diff-warn { margin-top: 6px; color: #92400e; font-weight: 700; }
+  .up { color: #047857; font-weight: 700; }
+  .down { color: #b91c1c; font-weight: 700; }
+  .diff-list { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .chg { border: 1px solid var(--line); border-left-width: 4px; border-radius: 10px; padding: 10px 12px; font-size: 13px; background: #fff; }
+  .chg-mod { border-left-color: #f59e0b; }
+  .chg-add { border-left-color: #10b981; }
+  .chg-del { border-left-color: #ef4444; }
+  .chg-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+  .tag { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
+  .tag-mod { background: #fef3c7; color: #92400e; }
+  .tag-add { background: #d1fae5; color: #065f46; }
+  .tag-del { background: #fee2e2; color: #991b1b; }
+  .tag-move { background: #e0e7ff; color: #3730a3; }
+  .chg-meta { color: var(--muted); font-size: 12px; }
+  .chg-cells { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .chg-cells li { overflow-wrap: anywhere; }
+  .chg-cells .lab { color: var(--muted); margin-right: 6px; }
+  .chg-cells .lab::after { content: ":"; }
+  .old { background: #fee2e2; text-decoration: line-through; padding: 0 3px; border-radius: 3px; }
+  .new { background: #fef08a; padding: 0 3px; border-radius: 3px; font-weight: 700; }
+  .chg-del .val { text-decoration: line-through; color: #991b1b; }
+  .chg details { margin-top: 6px; }
+  .chg summary { cursor: pointer; color: var(--accent); font-size: 12px; }
+  .chg table.full { table-layout: auto; font-size: 12px; margin-top: 6px; }
+  .chg table.full td { padding: 3px 6px; overflow-wrap: anywhere; }
+  .chg table.full tr.changed td { background: #fef9c3; }
+  details.more { margin: 0 12px 12px; border: 1px dashed #fcd34d; border-radius: 10px; padding: 8px 12px; background: #fffbeb; }
+  details.more > summary { cursor: pointer; font-weight: 700; color: #92400e; font-size: 13px; }
+  details.more .chg { margin-top: 8px; }
+  @media (max-width: 920px) { .diff-cards { grid-template-columns: 1fr; } }
+
   .notice { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 14px 18px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; white-space: pre-line; }
 
   /* 합계 행 — 헤더 바로 아래 고정(sticky) */
@@ -211,6 +263,13 @@
 </header>
 
 <div class="wrap">
+  <!-- 모드 선택: 실적 확인(대시보드) / 변경사항 확인(원본 ↔ 회신본 비교) -->
+  <div class="mode-tabs" id="modeTabs">
+    <button class="active" data-mode="dash">📊 실적 확인</button>
+    <button data-mode="diff">🔍 변경사항 확인</button>
+  </div>
+
+  <div id="modeDash">
   <div class="controls">
     <div class="file-box" id="dropZone">
       <label for="fileInput">📁 엑셀 파일 선택</label>
@@ -281,6 +340,42 @@
       <div class="table-scroll" id="tableScroll"></div>
     </div>
   </div>
+  </div><!-- /modeDash -->
+
+  <div id="modeDiff" style="display:none;">
+    <div class="controls">
+      <div class="file-box" id="diffBaseBox">
+        <label for="diffBase">① 공유한 원본</label>
+        <input type="file" id="diffBase" accept=".xlsx,.xls" />
+        <div class="file-meta">
+          <span class="drop-guide">처음 공유한 엑셀 (끌어놓기 가능)</span>
+          <span class="diff-fname" id="diffBaseName">선택된 파일 없음</span>
+        </div>
+      </div>
+      <div class="file-box" id="diffReplyBox">
+        <label for="diffReply">② 팀 회신본</label>
+        <input type="file" id="diffReply" accept=".xlsx,.xls" />
+        <div class="file-meta">
+          <span class="drop-guide">팀장님이 회신한 엑셀 (끌어놓기 가능)</span>
+          <span class="diff-fname" id="diffReplyName">선택된 파일 없음</span>
+        </div>
+      </div>
+      <label class="diff-team">비교할 팀
+        <select id="diffTeam">
+          <option value="전체">전체</option>
+          <option value="전산">전산</option>
+          <option value="탄소">탄소</option>
+          <option value="극저온">극저온</option>
+        </select>
+      </label>
+    </div>
+    <div id="diffErr"></div>
+    <div id="diffHint" class="hint">
+      <b>① 처음 공유한 원본</b>과 <b>② 팀장님이 회신한 파일</b>을 올리면, 선택한 팀의 <b>바뀐 칸 · 추가된 행 · 삭제된 행</b>을 보여줍니다.<br />
+      국가연구개발사업 · 수탁용역 · 시험인증 시트의 <b>값</b>만 비교합니다 (서식·색·메모, 순번·연번 제외). 파일은 브라우저 안에서만 읽습니다.
+    </div>
+    <div id="diffResult"></div>
+  </div><!-- /modeDiff -->
 </div>
 
 <script src="dashboard.js"></script>
