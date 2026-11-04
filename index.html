@@ -180,6 +180,13 @@
   .mode-tabs button.active { color: #fff; background: var(--accent); border-color: var(--accent); }
 
   /* 변경사항 확인 */
+  .guide { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; line-height: 1.6; }
+  .guide summary { cursor: pointer; font-weight: 700; font-size: 14px; }
+  .guide ol, .guide ul { margin: 8px 0 0; padding-left: 20px; }
+  .guide ul { color: #475569; }
+  .g-mod { background: #fef9c3; padding: 0 3px; border-radius: 3px; }
+  .g-add { background: #d1fae5; padding: 0 3px; border-radius: 3px; }
+  .g-del { background: #fee2e2; padding: 0 3px; border-radius: 3px; text-decoration: line-through; }
   #modeDiff .file-box { flex: 1 1 300px; }
   .diff-fname { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
   .diff-team { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
@@ -348,6 +355,20 @@
   </div><!-- /modeDash -->
 
   <div id="modeDiff" style="display:none;">
+    <!-- 사용 방법 (접을 수 있음) -->
+    <details class="guide" open>
+      <summary>📖 사용 방법</summary>
+      <ol>
+        <li><b>① 공유한 원본</b>: 팀장님들께 처음 보낸 엑셀을 올립니다. (취합 중인 파일이 아니라 <b>원본</b>)</li>
+        <li><b>② 팀 회신본</b>: 팀장님이 회신한 엑셀을 올립니다.</li>
+        <li><b>비교할 팀</b>: 회신한 팀을 고르면, 그 팀의 <span class="g-mod">바뀐 칸</span> · <span class="g-add">추가된 행</span> · <span class="g-del">삭제된 행</span>이 표로 나옵니다.</li>
+      </ol>
+      <ul>
+        <li>선택한 팀이 아닌 곳이 바뀌었으면 <b>⚠️ 다른 팀 영역 변경</b>으로 따로 알려줍니다. (실수로 고친 칸 확인용)</li>
+        <li>국가연구개발사업 · 수탁용역 · 시험인증 시트의 <b>값</b>만 비교합니다. (서식·색·메모, 순번·연번 제외)</li>
+        <li>엑셀 파일은 <b>읽기만</b> 하고 수정하지 않으며, 어디에도 전송·저장하지 않습니다.</li>
+      </ul>
+    </details>
     <div class="controls">
       <div class="file-box" id="diffBaseBox">
         <label for="diffBase">① 공유한 원본</label>
@@ -375,10 +396,6 @@
       </label>
     </div>
     <div id="diffErr"></div>
-    <div id="diffHint" class="hint">
-      <b>① 처음 공유한 원본</b>과 <b>② 팀장님이 회신한 파일</b>을 올리면, 선택한 팀의 <b>바뀐 칸 · 추가된 행 · 삭제된 행</b>을 보여줍니다.<br />
-      국가연구개발사업 · 수탁용역 · 시험인증 시트의 <b>값</b>만 비교합니다 (서식·색·메모, 순번·연번 제외). 파일은 브라우저 안에서만 읽습니다.
-    </div>
     <div id="diffResult"></div>
   </div><!-- /modeDiff -->
 </div>

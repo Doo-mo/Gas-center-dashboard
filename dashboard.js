@@ -1114,7 +1114,6 @@
 
   function renderDiff() {
     const host = document.getElementById("diffResult");
-    document.getElementById("diffHint").style.display = diffResult ? "none" : "";
     if (!diffResult) { host.innerHTML = ""; return; }
     const team = document.getElementById("diffTeam").value;
     const before = amountsOf(diffWb.base, team), after = amountsOf(diffWb.reply, team);
