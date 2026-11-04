@@ -866,6 +866,7 @@
   let diffWb = { base: null, reply: null };
   let diffTab = "국가연구개발사업";
   let diffResult = null;
+  let diffCols = "all"; // 열 표시: "all" 전체 열 | "changed" 바뀐 열만
 
   function readWorkbook(file) {
     return new Promise((resolve, reject) => {
@@ -931,7 +932,7 @@
         team: cfg.fixedTeam || normTeam(teamIdx >= 0 ? row[teamIdx] : "")
       });
     }
-    return { labels, rows };
+    return { labels, rows, nameLabel: nameIdx >= 0 ? labels[nameIdx] : "" };
   }
 
   // 비교용 값: 표시 형식이 아니라 실제 값으로 비교 (50,000,000 = 50000000, 회계 서식 "-" = 0)
@@ -1021,6 +1022,7 @@
     changes.sort((x, y) => (x.after || x.before).excelRow - (y.after || y.before).excelRow);
     return {
       labels, changes,
+      nameLabel: base.nameLabel || reply.nameLabel,
       colsAdded: reply.labels.filter(l => base.labels.indexOf(l) < 0),
       colsRemoved: base.labels.filter(l => reply.labels.indexOf(l) < 0)
     };
@@ -1067,37 +1069,33 @@
   function cellText(v) { return v === "" || v == null ? "(빈칸)" : v; }
   function signed(n) { return (n > 0 ? "+" : n < 0 ? "−" : "±") + fmt(Math.abs(n)); }
 
-  function changeHtml(ch, labels) {
-    const r = ch.after || ch.before;
-    const name = escapeHtml(r.name || "(이름 없음)");
-    const teamTxt = escapeHtml(ch.teams.filter(Boolean).filter((t, i, a) => a.indexOf(t) === i).join("→") || "팀 미지정");
-    let h;
-    if (ch.type === "mod") {
-      h = '<div class="chg chg-mod"><div class="chg-head"><span class="tag tag-mod">수정</span>' +
-        (ch.moved ? '<span class="tag tag-move">위치 이동</span>' : "") + "<b>" + name + "</b>" +
-        '<span class="chg-meta">원본 ' + ch.before.excelRow + "행 → 회신본 " + ch.after.excelRow + "행 · " + teamTxt + "</span></div>";
-      if (ch.cells.length) {
-        h += '<ul class="chg-cells">' + ch.cells.map(c => '<li><span class="lab">' + escapeHtml(c.label) + '</span><span class="old">' +
-          escapeHtml(cellText(c.before)) + '</span> → <span class="new">' + escapeHtml(cellText(c.after)) + "</span></li>").join("") + "</ul>";
-      } else {
-        h += '<div class="chg-meta">값은 그대로이고 행 위치만 바뀌었습니다.</div>';
-      }
-      const changed = {};
-      ch.cells.forEach(c => { changed[c.label] = true; });
-      h += '<details><summary>행 전체 보기</summary><table class="full"><tbody><tr><td></td><td><b>원본</b></td><td><b>회신본</b></td></tr>' +
-        labels.map(l => {
-          const a = ch.before.vals[l] || "", b = ch.after.vals[l] || "";
-          if (!a && !b) return "";
-          return "<tr" + (changed[l] ? ' class="changed"' : "") + "><td>" + escapeHtml(l) + "</td><td>" + escapeHtml(a) + "</td><td>" + escapeHtml(b) + "</td></tr>";
-        }).join("") + "</tbody></table></details></div>";
-      return h;
+  // 엑셀처럼 가로 표로 표시: 왼쪽에 상태·이름 고정, 바뀐 칸은 "이전(취소선) / 이후(노란색)"
+  function diffTableHtml(changes, d) {
+    let cols = d.labels.filter(l => l !== d.nameLabel);
+    if (diffCols === "changed") {
+      const hit = {};
+      changes.forEach(c => (c.cells || []).forEach(x => { hit[x.label] = true; }));
+      const only = cols.filter(l => hit[l]);
+      if (only.length) cols = only;
     }
-    const isAdd = ch.type === "add";
-    h = '<div class="chg ' + (isAdd ? "chg-add" : "chg-del") + '"><div class="chg-head"><span class="tag ' + (isAdd ? "tag-add" : "tag-del") + '">' +
-      (isAdd ? "추가" : "삭제") + "</span><b>" + name + '</b><span class="chg-meta">' + (isAdd ? "회신본 " : "원본 ") + r.excelRow + "행 · " + teamTxt + "</span></div>";
-    h += '<ul class="chg-cells">' + Object.keys(r.vals).filter(l => r.vals[l]).map(l =>
-      '<li><span class="lab">' + escapeHtml(l) + '</span><span class="val">' + escapeHtml(r.vals[l]) + "</span></li>").join("") + "</ul></div>";
-    return h;
+    const changedCell = (x, extra) => '<td class="dc-chg' + (extra || "") + '"><span class="old">' + escapeHtml(cellText(x.before)) +
+      '</span><span class="new">' + escapeHtml(cellText(x.after)) + "</span></td>";
+    let h = '<div class="diff-scroll"><table class="diff-table"><thead><tr><th class="sc0">상태</th><th class="sc1">' +
+      escapeHtml(d.nameLabel || "이름") + '</th><th class="nowrap">엑셀 행</th>' + cols.map(l => "<th>" + escapeHtml(l) + "</th>").join("") + "</tr></thead><tbody>";
+    changes.forEach(c => {
+      const r = c.after || c.before;
+      const tag = c.type === "mod" ? '<span class="tag tag-mod">수정</span>' + (c.moved ? '<span class="tag tag-move">이동</span>' : "")
+        : c.type === "add" ? '<span class="tag tag-add">추가</span>' : '<span class="tag tag-del">삭제</span>';
+      const rowTxt = c.type === "mod" ? "원본 " + c.before.excelRow + " → 회신 " + c.after.excelRow
+        : c.type === "add" ? "회신 " + c.after.excelRow : "원본 " + c.before.excelRow;
+      const byLabel = {};
+      (c.cells || []).forEach(x => { byLabel[x.label] = x; });
+      h += '<tr class="' + (c.type === "mod" ? "dr-mod" : c.type === "add" ? "dr-add" : "dr-del") + '"><td class="sc0">' + tag + "</td>" +
+        (byLabel[d.nameLabel] ? changedCell(byLabel[d.nameLabel], " sc1") : '<td class="sc1">' + escapeHtml(r.name || "(이름 없음)") + "</td>") +
+        '<td class="nowrap">' + rowTxt + "</td>" +
+        cols.map(l => byLabel[l] ? changedCell(byLabel[l]) : "<td>" + escapeHtml(r.vals[l] || "") + "</td>").join("") + "</tr>";
+    });
+    return h + "</tbody></table></div>";
   }
 
   function renderDiff() {
@@ -1140,14 +1138,16 @@
       if (d.colsAdded.length || d.colsRemoved.length) {
         html += '<div class="notice">' + escapeHtml("열 구성이 바뀌었습니다." + (d.colsAdded.length ? "\n · 추가된 열: " + d.colsAdded.join(", ") : "") + (d.colsRemoved.length ? "\n · 없어진 열: " + d.colsRemoved.join(", ") : "")) + "</div>";
       }
-      html += bk.mine.length ? bk.mine.map(c => changeHtml(c, d.labels)).join("") : '<div class="chg-meta">' + escapeHtml(teamName) + " 변경 사항이 없습니다.</div>";
+      html += '<div class="diff-colmode">열 표시: <button type="button" data-cols="all"' + (diffCols === "all" ? ' class="active"' : "") + '>전체 열</button>' +
+        '<button type="button" data-cols="changed"' + (diffCols === "changed" ? ' class="active"' : "") + ">바뀐 열만</button></div>";
+      html += bk.mine.length ? diffTableHtml(bk.mine, d) : '<div class="chg-meta">' + escapeHtml(teamName) + " 변경 사항이 없습니다.</div>";
     }
     html += "</div>";
     if (bk.other.length) {
-      html += '<details class="more"><summary>⚠️ 다른 팀 영역 변경 ' + bk.other.length + "건 — 실수로 고친 것인지 확인하세요</summary>" + bk.other.map(c => changeHtml(c, d.labels)).join("") + "</details>";
+      html += '<details class="more"><summary>⚠️ 다른 팀 영역 변경 ' + bk.other.length + "건 — 실수로 고친 것인지 확인하세요</summary>" + diffTableHtml(bk.other, d) + "</details>";
     }
     if (bk.none.length) {
-      html += '<details class="more"><summary>팀 미지정 행 변경 ' + bk.none.length + "건</summary>" + bk.none.map(c => changeHtml(c, d.labels)).join("") + "</details>";
+      html += '<details class="more"><summary>팀 미지정 행 변경 ' + bk.none.length + "건</summary>" + diffTableHtml(bk.none, d) + "</details>";
     }
     html += "</div>";
     host.innerHTML = html;
@@ -1185,6 +1185,8 @@
 
   document.getElementById("diffTeam").addEventListener("change", renderDiff);
   document.getElementById("diffResult").addEventListener("click", function (e) {
+    const cm = e.target.closest(".diff-colmode button[data-cols]");
+    if (cm) { diffCols = cm.getAttribute("data-cols"); renderDiff(); return; }
     const b = e.target.closest("#diffTabs button[data-sheet]");
     if (!b) return;
     diffTab = b.getAttribute("data-sheet");

@@ -195,32 +195,34 @@
   .up { color: #047857; font-weight: 700; }
   .down { color: #b91c1c; font-weight: 700; }
   .diff-list { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
-  .chg { border: 1px solid var(--line); border-left-width: 4px; border-radius: 10px; padding: 10px 12px; font-size: 13px; background: #fff; }
-  .chg-mod { border-left-color: #f59e0b; }
-  .chg-add { border-left-color: #10b981; }
-  .chg-del { border-left-color: #ef4444; }
-  .chg-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
-  .tag { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; }
+  .chg-meta { color: var(--muted); font-size: 13px; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; white-space: nowrap; margin: 1px 0; }
   .tag-mod { background: #fef3c7; color: #92400e; }
   .tag-add { background: #d1fae5; color: #065f46; }
   .tag-del { background: #fee2e2; color: #991b1b; }
   .tag-move { background: #e0e7ff; color: #3730a3; }
-  .chg-meta { color: var(--muted); font-size: 12px; }
-  .chg-cells { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
-  .chg-cells li { overflow-wrap: anywhere; }
-  .chg-cells .lab { color: var(--muted); margin-right: 6px; }
-  .chg-cells .lab::after { content: ":"; }
-  .old { background: #fee2e2; text-decoration: line-through; padding: 0 3px; border-radius: 3px; }
-  .new { background: #fef08a; padding: 0 3px; border-radius: 3px; font-weight: 700; }
-  .chg-del .val { text-decoration: line-through; color: #991b1b; }
-  .chg details { margin-top: 6px; }
-  .chg summary { cursor: pointer; color: var(--accent); font-size: 12px; }
-  .chg table.full { table-layout: auto; font-size: 12px; margin-top: 6px; }
-  .chg table.full td { padding: 3px 6px; overflow-wrap: anywhere; }
-  .chg table.full tr.changed td { background: #fef9c3; }
+  .diff-colmode { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .diff-colmode button { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 8px; padding: 5px 10px; font-size: 13px; cursor: pointer; }
+  .diff-colmode button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  /* 가로 표 (엑셀처럼): 머리글은 위, 상태·이름 열은 왼쪽에 고정 */
+  .diff-scroll { overflow: auto; max-height: 70vh; border: 1px solid var(--line); border-radius: 8px; }
+  table.diff-table { table-layout: auto; width: max-content; min-width: 100%; font-size: 12px; }
+  table.diff-table th, table.diff-table td { padding: 6px 8px; max-width: 200px; min-width: 70px; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; vertical-align: top; }
+  table.diff-table th.nowrap, table.diff-table td.nowrap { white-space: nowrap; }
+  table.diff-table .sc0 { position: sticky; left: 0; z-index: 2; background: #fff; width: 64px; min-width: 64px; max-width: 64px; text-align: center; }
+  table.diff-table .sc1 { position: sticky; left: 64px; z-index: 2; background: #fff; min-width: 180px; max-width: 220px; box-shadow: 2px 0 0 var(--line); }
+  table.diff-table thead .sc0, table.diff-table thead .sc1 { z-index: 4; background: #f3f4f6; }
+  table.diff-table tr.dr-add td { background: #ecfdf5; }
+  table.diff-table tr.dr-del td { background: #fef2f2; color: #991b1b; text-decoration: line-through; }
+  table.diff-table tr.dr-del td.sc0 { text-decoration: none; }
+  table.diff-table td.dc-chg { background: #fef9c3; }
+  table.diff-table td.dc-chg .old, table.diff-table td.dc-chg .new { display: block; }
+  .old { color: #991b1b; text-decoration: line-through; }
+  .new { font-weight: 700; }
+  @media (max-width: 560px) { table.diff-table .sc1 { min-width: 120px; max-width: 130px; } }
   details.more { margin: 0 12px 12px; border: 1px dashed #fcd34d; border-radius: 10px; padding: 8px 12px; background: #fffbeb; }
   details.more > summary { cursor: pointer; font-weight: 700; color: #92400e; font-size: 13px; }
-  details.more .chg { margin-top: 8px; }
+  details.more .diff-scroll { margin-top: 8px; }
   @media (max-width: 920px) { .diff-cards { grid-template-columns: 1fr; } }
 
   .notice { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 14px 18px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; white-space: pre-line; }
