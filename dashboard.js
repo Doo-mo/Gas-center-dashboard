@@ -932,7 +932,9 @@
         team: cfg.fixedTeam || normTeam(teamIdx >= 0 ? row[teamIdx] : "")
       });
     }
-    return { labels, rows, nameLabel: nameIdx >= 0 ? labels[nameIdx] : "" };
+    // 머리글도 값도 없는 빈 열(예: "열 X")은 표에서 뺌
+    const used = labels.filter(l => !/^열 [A-Z]+$/.test(l) || rows.some(r => r.vals[l]));
+    return { labels: used, rows, nameLabel: nameIdx >= 0 ? labels[nameIdx] : "" };
   }
 
   // 비교용 값: 표시 형식이 아니라 실제 값으로 비교 (50,000,000 = 50000000, 회계 서식 "-" = 0)
@@ -1080,13 +1082,25 @@
     }
     const changedCell = (x, extra) => '<td class="dc-chg' + (extra || "") + '"><span class="old">' + escapeHtml(cellText(x.before)) +
       '</span><span class="new">' + escapeHtml(cellText(x.after)) + "</span></td>";
-    let h = '<div class="diff-scroll"><table class="diff-table"><thead><tr><th class="sc0">상태</th><th class="sc1">' +
-      escapeHtml(d.nameLabel || "이름") + '</th><th class="nowrap">엑셀 행</th>' + cols.map(l => "<th>" + escapeHtml(l) + "</th>").join("") + "</tr></thead><tbody>";
+    // 머리글 2줄 (엑셀의 병합 머리글처럼): "당해년도 사업비 · 인건비/간접비/합계" → 윗줄에 묶음 이름, 아랫줄에 인건비·간접비·합계
+    const split = l => { const i = l.indexOf(" · "); return i < 0 ? [l, ""] : [l.slice(0, i), l.slice(i + 3)]; };
+    const thText = t => escapeHtml(t).replace(/([(\[])/g, "<wbr>$1"); // 괄호 앞에서 줄바꿈 허용
+    let r1 = '<th class="sc0" rowspan="2">상태</th><th class="sc1" rowspan="2">' + escapeHtml(d.nameLabel || "이름") +
+      '</th><th class="nowrap" rowspan="2">엑셀 행</th>', r2 = "";
+    for (let i = 0; i < cols.length;) {
+      const g = split(cols[i]);
+      if (!g[1]) { r1 += '<th rowspan="2"><div class="th-in">' + thText(g[0]) + "</div></th>"; i++; continue; }
+      const subs = [];
+      while (i < cols.length && split(cols[i])[1] && split(cols[i])[0] === g[0]) { subs.push(split(cols[i])[1]); i++; }
+      r1 += '<th class="th-group" colspan="' + subs.length + '"><div class="th-in" style="max-width:' + subs.length * 90 + 'px">' + thText(g[0]) + "</div></th>";
+      r2 += subs.map(t => '<th><div class="th-in">' + thText(t) + "</div></th>").join("");
+    }
+    let h = '<div class="diff-scroll"><table class="diff-table"><thead><tr>' + r1 + "</tr>" + (r2 ? "<tr>" + r2 + "</tr>" : "") + "</thead><tbody>";
     changes.forEach(c => {
       const r = c.after || c.before;
       const tag = c.type === "mod" ? '<span class="tag tag-mod">수정</span>' + (c.moved ? '<span class="tag tag-move">이동</span>' : "")
         : c.type === "add" ? '<span class="tag tag-add">추가</span>' : '<span class="tag tag-del">삭제</span>';
-      const rowTxt = c.type === "mod" ? "원본 " + c.before.excelRow + " → 회신 " + c.after.excelRow
+      const rowTxt = c.type === "mod" ? "원본 " + c.before.excelRow + "<br>회신 " + c.after.excelRow
         : c.type === "add" ? "회신 " + c.after.excelRow : "원본 " + c.before.excelRow;
       const byLabel = {};
       (c.cells || []).forEach(x => { byLabel[x.label] = x; });
@@ -1151,6 +1165,17 @@
     }
     html += "</div>";
     host.innerHTML = html;
+    fixDiffHeaderTops();
+  }
+
+  // 머리글이 2줄일 때 아랫줄도 위에 고정: 윗줄 높이만큼 내려서 붙임 (접혀 있던 표는 펼칠 때 다시 계산)
+  function fixDiffHeaderTops() {
+    document.querySelectorAll("#diffResult table.diff-table").forEach(t => {
+      const rows = t.tHead ? t.tHead.rows : [];
+      if (rows.length < 2) return;
+      const h = rows[0].getBoundingClientRect().height;
+      if (h) [...rows[1].cells].forEach(c => { c.style.top = h + "px"; });
+    });
   }
 
   // 원본·회신본 파일 선택 (버튼 또는 끌어놓기)
@@ -1184,6 +1209,7 @@
   });
 
   document.getElementById("diffTeam").addEventListener("change", renderDiff);
+  document.getElementById("diffResult").addEventListener("toggle", fixDiffHeaderTops, true);
   document.getElementById("diffResult").addEventListener("click", function (e) {
     const cm = e.target.closest(".diff-colmode button[data-cols]");
     if (cm) { diffCols = cm.getAttribute("data-cols"); renderDiff(); return; }
