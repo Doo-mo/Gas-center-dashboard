@@ -171,6 +171,70 @@
   .b-etc { background: #f3f4f6; color: #4b5563; }
 
   .err { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 14px 18px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; white-space: pre-line; }
+  /* 모드 선택 */
+  .mode-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .mode-tabs button {
+    flex: 1 1 0; padding: 12px; border: 1px solid var(--line); background: var(--card); border-radius: 10px;
+    font-size: 15px; font-weight: 700; color: var(--muted); cursor: pointer; box-shadow: var(--shadow);
+  }
+  .mode-tabs button.active { color: #fff; background: var(--accent); border-color: var(--accent); }
+
+  /* 변경사항 확인 */
+  .guide { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; line-height: 1.6; }
+  .guide summary { cursor: pointer; font-weight: 700; font-size: 14px; }
+  .guide ol, .guide ul { margin: 8px 0 0; padding-left: 20px; }
+  .guide ul { color: #475569; }
+  .g-mod { background: #fef9c3; padding: 0 3px; border-radius: 3px; }
+  .g-add { background: #d1fae5; padding: 0 3px; border-radius: 3px; }
+  .g-del { background: #fee2e2; padding: 0 3px; border-radius: 3px; text-decoration: line-through; }
+  #modeDiff .file-box { flex: 1 1 300px; }
+  .diff-fname { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+  .diff-team { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
+  .diff-team select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; background: #fff; }
+  .diff-total { font-size: 15px; margin-bottom: 12px; }
+  .diff-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .diff-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); font-size: 13px; }
+  .diff-card h4 { margin: 0 0 8px; font-size: 14px; }
+  .diff-card .cnt span { margin-right: 10px; }
+  .diff-amt { margin-top: 6px; color: var(--muted); overflow-wrap: anywhere; }
+  .diff-amt b { color: var(--ink); }
+  .diff-warn { margin-top: 6px; color: #92400e; font-weight: 700; }
+  .up { color: #047857; font-weight: 700; }
+  .down { color: #b91c1c; font-weight: 700; }
+  .diff-list { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .chg-meta { color: var(--muted); font-size: 13px; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; white-space: nowrap; margin: 1px 0; }
+  .tag-mod { background: #fef3c7; color: #92400e; }
+  .tag-add { background: #d1fae5; color: #065f46; }
+  .tag-del { background: #fee2e2; color: #991b1b; }
+  .tag-move { background: #e0e7ff; color: #3730a3; }
+  .diff-colmode { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .diff-colmode button { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 8px; padding: 5px 10px; font-size: 13px; cursor: pointer; }
+  .diff-colmode button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  /* 가로 표 (엑셀처럼): 머리글은 위, 상태·이름 열은 왼쪽에 고정 */
+  .diff-scroll { overflow: auto; max-height: 70vh; border: 1px solid var(--line); border-radius: 8px; }
+  table.diff-table { table-layout: auto; width: max-content; min-width: 100%; font-size: 12px; }
+  table.diff-table th, table.diff-table td { padding: 6px 8px; max-width: 200px; min-width: 70px; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; vertical-align: top; }
+  table.diff-table th.nowrap, table.diff-table td.nowrap { white-space: nowrap; }
+  table.diff-table thead th { vertical-align: middle; }
+  table.diff-table th .th-in { max-width: 110px; margin: 0 auto; line-height: 1.35; word-break: keep-all; overflow-wrap: break-word; }
+  table.diff-table th.th-group { border-bottom: 1px solid var(--line); }
+  table.diff-table .sc0 { position: sticky; left: 0; z-index: 2; background: #fff; width: 64px; min-width: 64px; max-width: 64px; text-align: center; }
+  table.diff-table .sc1 { position: sticky; left: 64px; z-index: 2; background: #fff; min-width: 180px; max-width: 220px; box-shadow: 2px 0 0 var(--line); }
+  table.diff-table thead .sc0, table.diff-table thead .sc1 { z-index: 4; background: #f3f4f6; }
+  table.diff-table tr.dr-add td { background: #ecfdf5; }
+  table.diff-table tr.dr-del td { background: #fef2f2; color: #991b1b; text-decoration: line-through; }
+  table.diff-table tr.dr-del td.sc0 { text-decoration: none; }
+  table.diff-table td.dc-chg { background: #fef9c3; }
+  table.diff-table td.dc-chg .old, table.diff-table td.dc-chg .new { display: block; }
+  .old { color: #991b1b; text-decoration: line-through; }
+  .new { font-weight: 700; }
+  @media (max-width: 560px) { table.diff-table .sc1 { min-width: 120px; max-width: 130px; } }
+  details.more { margin: 0 12px 12px; border: 1px dashed #fcd34d; border-radius: 10px; padding: 8px 12px; background: #fffbeb; }
+  details.more > summary { cursor: pointer; font-weight: 700; color: #92400e; font-size: 13px; }
+  details.more .diff-scroll { margin-top: 8px; }
+  @media (max-width: 920px) { .diff-cards { grid-template-columns: 1fr; } }
+
   .notice { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 14px 18px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; white-space: pre-line; }
 
   /* 합계 행 — 헤더 바로 아래 고정(sticky) */
@@ -211,6 +275,13 @@
 </header>
 
 <div class="wrap">
+  <!-- 모드 선택: 실적 확인(대시보드) / 변경사항 확인(원본 ↔ 회신본 비교) -->
+  <div class="mode-tabs" id="modeTabs">
+    <button class="active" data-mode="dash">📊 실적 확인</button>
+    <button data-mode="diff">🔍 변경사항 확인</button>
+  </div>
+
+  <div id="modeDash">
   <div class="controls">
     <div class="file-box" id="dropZone">
       <label for="fileInput">📁 엑셀 파일 선택</label>
@@ -281,6 +352,52 @@
       <div class="table-scroll" id="tableScroll"></div>
     </div>
   </div>
+  </div><!-- /modeDash -->
+
+  <div id="modeDiff" style="display:none;">
+    <!-- 사용 방법 (접을 수 있음) -->
+    <details class="guide" open>
+      <summary>📖 사용 방법</summary>
+      <ol>
+        <li><b>① 공유한 원본</b>: 팀장님들께 처음 보낸 엑셀을 올립니다. (취합 중인 파일이 아니라 <b>원본</b>)</li>
+        <li><b>② 팀 회신본</b>: 팀장님이 회신한 엑셀을 올립니다.</li>
+        <li><b>비교할 팀</b>: 회신한 팀을 고르면, 그 팀의 <span class="g-mod">바뀐 칸</span> · <span class="g-add">추가된 행</span> · <span class="g-del">삭제된 행</span>이 표로 나옵니다.</li>
+      </ol>
+      <ul>
+        <li>선택한 팀이 아닌 곳이 바뀌었으면 <b>⚠️ 다른 팀 영역 변경</b>으로 따로 알려줍니다. (실수로 고친 칸 확인용)</li>
+        <li>국가연구개발사업 · 수탁용역 · 시험인증 시트의 <b>값</b>만 비교합니다. (서식·색·메모, 순번·연번 제외)</li>
+        <li>엑셀 파일은 <b>읽기만</b> 하고 수정하지 않으며, 어디에도 전송·저장하지 않습니다.</li>
+      </ul>
+    </details>
+    <div class="controls">
+      <div class="file-box" id="diffBaseBox">
+        <label for="diffBase">① 공유한 원본</label>
+        <input type="file" id="diffBase" accept=".xlsx,.xls" />
+        <div class="file-meta">
+          <span class="drop-guide">처음 공유한 엑셀 (끌어놓기 가능)</span>
+          <span class="diff-fname" id="diffBaseName">선택된 파일 없음</span>
+        </div>
+      </div>
+      <div class="file-box" id="diffReplyBox">
+        <label for="diffReply">② 팀 회신본</label>
+        <input type="file" id="diffReply" accept=".xlsx,.xls" />
+        <div class="file-meta">
+          <span class="drop-guide">팀장님이 회신한 엑셀 (끌어놓기 가능)</span>
+          <span class="diff-fname" id="diffReplyName">선택된 파일 없음</span>
+        </div>
+      </div>
+      <label class="diff-team">비교할 팀
+        <select id="diffTeam">
+          <option value="전체">전체</option>
+          <option value="전산">전산</option>
+          <option value="탄소">탄소</option>
+          <option value="극저온">극저온</option>
+        </select>
+      </label>
+    </div>
+    <div id="diffErr"></div>
+    <div id="diffResult"></div>
+  </div><!-- /modeDiff -->
 </div>
 
 <script src="dashboard.js"></script>

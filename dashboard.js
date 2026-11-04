@@ -11,6 +11,12 @@
   const SHEETS = ["국가연구개발사업", "수탁용역", "시험인증"];
   // 팀 도넛(주황/초록/파랑)과 구분되는 색: 인디고 / 로즈 / 틸
   const SHEET_COLORS = { "국가연구개발사업": "#6366f1", "수탁용역": "#ec4899", "시험인증": "#14b8a6" };
+  // 시트별 헤더 행 탐지 키워드 (실적 확인 · 변경사항 확인 공용)
+  const HEADER_KEYWORDS = {
+    "국가연구개발사업": ["순번", "구분", "팀", "과제명", "주관기관", "역할", "당해년도", "사업비", "진행상태"],
+    "수탁용역": ["시험", "용역항목", "시험사료명", "담당", "총입금액", "인정실적", "담당팀"],
+    "시험인증": ["연번", "업체명", "용역기간", "시험", "담당", "총입금실적", "시험수수료", "재료비"]
+  };
 
   let RAW = { "국가연구개발사업": [], "수탁용역": [], "시험인증": [] };
   let GOAL = 0; // 운용자금 목표금액 ('분기별 보고' 시트에서 자동 탐지). 못 찾으면 0
@@ -107,7 +113,7 @@
   }
 
   function parseNRND(aoa) {
-    const hKeywords = ["순번", "구분", "팀", "과제명", "주관기관", "역할", "당해년도", "사업비", "진행상태"];
+    const hKeywords = HEADER_KEYWORDS["국가연구개발사업"];
     const hRow = findHeaderRow(aoa, hKeywords);
     const header = aoa[hRow] || [];
     const cGubun = colIndex(header, ["구분"]);
@@ -149,7 +155,7 @@
   }
 
   function parseService(aoa) {
-    const hKeywords = ["시험", "용역항목", "시험사료명", "담당", "총입금액", "인정실적", "담당팀"];
+    const hKeywords = HEADER_KEYWORDS["수탁용역"];
     const hRow = findHeaderRow(aoa, hKeywords);
     const header = aoa[hRow] || [];
     const sub = aoa[hRow + 1] || [];
@@ -186,7 +192,7 @@
   }
 
   function parseCert(aoa) {
-    const hKeywords = ["연번", "업체명", "용역기간", "시험", "담당", "총입금실적", "시험수수료", "재료비"];
+    const hKeywords = HEADER_KEYWORDS["시험인증"];
     const hRow = findHeaderRow(aoa, hKeywords);
     const header = aoa[hRow] || [];
     const cNo = colIndex(header, ["연번"]);
@@ -842,5 +848,383 @@
       sortDir = col && col.num ? -1 : 1;
     }
     renderTable(currentTab);
+  });
+
+  /* =========================================================================
+     변경사항 확인: 공유한 원본 ↔ 팀 회신본 비교 (브라우저 안에서만 처리)
+     ========================================================================= */
+  // 시트별 설정: name = 행을 맞출 때 가장 중요하게 보는 열(과제명·계약명), team = 팀 열
+  const DIFF_SHEETS = [
+    { sheet: "국가연구개발사업", name: ["과제명"], team: ["팀"] },
+    { sheet: "수탁용역", name: ["시험시료명용역계약명", "시험사료명용역계약명", "용역계약명", "시험사료명"], team: ["담당팀"] },
+    { sheet: "시험인증", name: ["시험시료명용역계약명", "시험사료명용역계약명", "용역계약명"], fixedTeam: "극저온" }
+  ];
+  const MATCH_MIN = 0.55; // 이 이상 비슷하면 같은 행(수정)으로 봄
+  const MOVE_MIN = 0.8;   // 순서가 바뀐 행은 더 엄격하게
+  // 순번·연번은 행을 넣거나 지우면 아래가 전부 다시 매겨지므로 비교에서 제외 (행 내용은 그대로 보여줌)
+  const isSeqLabel = l => /^(순번|연번|번호|no\.?)$/i.test(norm(l));
+  let diffWb = { base: null, reply: null };
+  let diffTab = "국가연구개발사업";
+  let diffResult = null;
+  let diffCols = "all"; // 열 표시: "all" 전체 열 | "changed" 바뀐 열만
+
+  function readWorkbook(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        try { resolve(XLSX.read(new Uint8Array(e.target.result), { type: "array" })); } catch (err) { reject(err); }
+      };
+      reader.onerror = () => reject(new Error("파일을 읽을 수 없습니다."));
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  function findSheet(wb, name) { return wb.SheetNames.find(n => norm(n) === norm(name)); }
+
+  // 헤더 바로 아래 줄이 2단 헤더(인건비/간접비/합계 등)인지: 이름 칸이 비었고, 숫자 없이 글자만 2칸 이상
+  function isSubHeaderRow(row, nameIdx) {
+    const cells = (row || []).map(c => String(c == null ? "" : c).trim()).filter(Boolean);
+    if (cells.length < 2) return false;
+    if (nameIdx >= 0 && String((row || [])[nameIdx] || "").trim()) return false;
+    return cells.every(c => !/^-?[\d,.]+$/.test(c.replace(/\s/g, "")));
+  }
+
+  // 시트를 "열 이름 → 값" 행 목록으로 읽음. 열은 헤더 이름으로 맞추므로 열이 추가·삭제돼도 비교 가능
+  function extractForDiff(wb, cfg) {
+    const sn = findSheet(wb, cfg.sheet);
+    if (!sn) return null;
+    const ws = wb.Sheets[sn];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" });   // 화면 표시용 (엑셀에 보이는 글자)
+    const rawAoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" }); // 비교용 (실제 값)
+    const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+    const hRow = findHeaderRow(aoa, HEADER_KEYWORDS[cfg.sheet]);
+    const header = aoa[hRow] || [];
+    const nameIdx = colIndex(header, cfg.name);
+    const teamIdx = cfg.team ? colIndex(header, cfg.team) : -1;
+    const hasSub = isSubHeaderRow(aoa[hRow + 1], nameIdx);
+    const sub = hasSub ? aoa[hRow + 1] : [];
+    const width = aoa.slice(hRow).reduce((w, r) => Math.max(w, r.length), 0);
+    const clean = v => String(v == null ? "" : v).replace(/\s+/g, " ").trim();
+
+    const labels = [], seen = {};
+    let lastTop = "";
+    for (let c = 0; c < width; c++) {
+      const top = clean(header[c]), s = clean(sub[c]);
+      if (top) lastTop = top;
+      let label = s ? ((top || lastTop) ? (top || lastTop) + " · " + s : s) : top;
+      if (!label) label = "열 " + XLSX.utils.encode_col(range.s.c + c);
+      if (seen[label]) { seen[label]++; label += " (" + seen[label] + ")"; } else seen[label] = 1;
+      labels.push(label);
+    }
+
+    const rows = [];
+    for (let r = hRow + (hasSub ? 2 : 1); r < aoa.length; r++) {
+      const row = aoa[r] || [];
+      if (!row.some(v => clean(v))) continue;
+      if (isTotalRow(row)) continue;
+      const vals = {}, keys = {}, rawRow = rawAoa[r] || [];
+      labels.forEach((l, c) => { vals[l] = clean(row[c]); keys[l] = cmpKey(rawRow[c]); });
+      rows.push({
+        excelRow: range.s.r + r + 1,
+        vals: vals,
+        keys: keys,
+        name: nameIdx >= 0 ? clean(row[nameIdx]) : "",
+        team: cfg.fixedTeam || normTeam(teamIdx >= 0 ? row[teamIdx] : "")
+      });
+    }
+    // 머리글도 값도 없는 빈 열(예: "열 X")은 표에서 뺌
+    const used = labels.filter(l => !/^열 [A-Z]+$/.test(l) || rows.some(r => r.vals[l]));
+    return { labels: used, rows, nameLabel: nameIdx >= 0 ? labels[nameIdx] : "" };
+  }
+
+  // 비교용 값: 표시 형식이 아니라 실제 값으로 비교 (50,000,000 = 50000000, 회계 서식 "-" = 0)
+  function cmpKey(v) {
+    if (typeof v === "number") return String(Math.round(v * 1e6) / 1e6);
+    const s = String(v == null ? "" : v).replace(/\s+/g, " ").trim();
+    if (/^[-–−]$/.test(s)) return "0";
+    const n = s.replace(/[,\s₩원]/g, "");
+    if (n !== "" && /^-?\d+(\.\d+)?$/.test(n)) return String(Number(n));
+    return s;
+  }
+
+  function bigrams(s) {
+    const t = norm(s), out = [];
+    for (let i = 0; i < t.length - 1; i++) out.push(t.slice(i, i + 2));
+    return out.length ? out : (t ? [t] : []);
+  }
+  function dice(a, b) {
+    if (norm(a) === norm(b)) return 1;
+    const A = bigrams(a), B = bigrams(b);
+    if (!A.length || !B.length) return 0;
+    const m = {};
+    A.forEach(x => { m[x] = (m[x] || 0) + 1; });
+    let hit = 0;
+    B.forEach(x => { if (m[x]) { m[x]--; hit++; } });
+    return 2 * hit / (A.length + B.length);
+  }
+  // 두 행이 같은 과제일 가능성: 이름(과제명·계약명) 60% + 나머지 칸 일치율 40%
+  function rowSim(a, b, labels) {
+    let both = 0, same = 0;
+    labels.forEach(l => {
+      const x = a.keys[l] || "", y = b.keys[l] || "";
+      if (x || y) { both++; if (x === y) same++; }
+    });
+    return 0.6 * dice(a.name, b.name) + 0.4 * (both ? same / both : 0);
+  }
+
+  // 순서를 지키면서 가장 잘 맞는 행끼리 짝지음 (중간에 행을 넣거나 지워도 아래 행이 밀리지 않게)
+  function alignRows(A, B, labels) {
+    const n = A.length, m = B.length;
+    const S = A.map(a => B.map(b => rowSim(a, b, labels)));
+    const dp = [];
+    for (let i = 0; i <= n; i++) dp.push(new Array(m + 1).fill(0));
+    for (let i = 1; i <= n; i++) {
+      for (let j = 1; j <= m; j++) {
+        let best = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        const s = S[i - 1][j - 1];
+        if (s >= MATCH_MIN) best = Math.max(best, dp[i - 1][j - 1] + s);
+        dp[i][j] = best;
+      }
+    }
+    const pairs = [];
+    let i = n, j = m;
+    while (i > 0 && j > 0) {
+      const s = S[i - 1][j - 1];
+      if (s >= MATCH_MIN && Math.abs(dp[i][j] - (dp[i - 1][j - 1] + s)) < 1e-9) { pairs.push([i - 1, j - 1, false]); i--; j--; }
+      else if (dp[i][j] === dp[i - 1][j]) i--;
+      else j--;
+    }
+    pairs.reverse();
+    const usedA = new Set(pairs.map(p => p[0])), usedB = new Set(pairs.map(p => p[1]));
+    // 순서가 바뀐 행: 남은 행끼리 아주 비슷하면 같은 행(위치 이동)으로 봄
+    const cand = [];
+    A.forEach((_, a) => { if (!usedA.has(a)) B.forEach((__, b) => { if (!usedB.has(b) && S[a][b] >= MOVE_MIN) cand.push([S[a][b], a, b]); }); });
+    cand.sort((x, y) => y[0] - x[0]);
+    cand.forEach(c => { if (!usedA.has(c[1]) && !usedB.has(c[2])) { usedA.add(c[1]); usedB.add(c[2]); pairs.push([c[1], c[2], true]); } });
+    return {
+      pairs,
+      deleted: A.map((_, a) => a).filter(a => !usedA.has(a)),
+      added: B.map((_, b) => b).filter(b => !usedB.has(b))
+    };
+  }
+
+  function diffSheet(base, reply) {
+    const labels = base.labels.concat(reply.labels.filter(l => base.labels.indexOf(l) < 0));
+    const cmpLabels = labels.filter(l => !isSeqLabel(l));
+    const al = alignRows(base.rows, reply.rows, cmpLabels);
+    const changes = [];
+    al.pairs.forEach(p => {
+      const A = base.rows[p[0]], B = reply.rows[p[1]];
+      const cells = cmpLabels.filter(l => (A.keys[l] || "") !== (B.keys[l] || ""))
+        .map(l => ({ label: l, before: A.vals[l] || "", after: B.vals[l] || "" }));
+      if (cells.length || p[2]) changes.push({ type: "mod", moved: p[2], before: A, after: B, cells, teams: [A.team, B.team] });
+    });
+    al.deleted.forEach(a => changes.push({ type: "del", before: base.rows[a], teams: [base.rows[a].team] }));
+    al.added.forEach(b => changes.push({ type: "add", after: reply.rows[b], teams: [reply.rows[b].team] }));
+    changes.sort((x, y) => (x.after || x.before).excelRow - (y.after || y.before).excelRow);
+    return {
+      labels, changes,
+      nameLabel: base.nameLabel || reply.nameLabel,
+      colsAdded: reply.labels.filter(l => base.labels.indexOf(l) < 0),
+      colsRemoved: base.labels.filter(l => reply.labels.indexOf(l) < 0)
+    };
+  }
+
+  // 선택한 팀의 변경인지, 다른 팀 영역인지, 팀 미지정 행인지
+  function diffBucket(ch, team) {
+    if (team === "전체" || ch.teams.indexOf(team) >= 0) return "mine";
+    if (ch.teams.every(t => !t)) return "none";
+    return "other";
+  }
+
+  // 실적 확인과 같은 기준으로 계산한 시트별 실적 합계 (선택 팀만)
+  function amountsOf(wb, team) {
+    const fns = { "국가연구개발사업": parseNRND, "수탁용역": parseService, "시험인증": parseCert };
+    const out = {};
+    SHEETS.forEach(s => {
+      const sn = findSheet(wb, s);
+      const rows = sn ? fns[s](XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: true, defval: "" })) : [];
+      out[s] = rows.filter(d => team === "전체" || d.팀 === team).reduce((a, d) => a + toNum(d.실적), 0);
+    });
+    return out;
+  }
+
+  function runDiff() {
+    const errBox = document.getElementById("diffErr");
+    errBox.innerHTML = "";
+    if (!diffWb.base || !diffWb.reply) { diffResult = null; renderDiff(); return; }
+    const sheets = {}, missing = [];
+    DIFF_SHEETS.forEach(cfg => {
+      const b = extractForDiff(diffWb.base, cfg), r = extractForDiff(diffWb.reply, cfg);
+      if (!b || !r) { missing.push(cfg.sheet + (b ? " (회신본에 없음)" : r ? " (원본에 없음)" : " (두 파일 모두 없음)")); sheets[cfg.sheet] = null; return; }
+      sheets[cfg.sheet] = diffSheet(b, r);
+    });
+    if (missing.length === DIFF_SHEETS.length) {
+      errBox.innerHTML = '<div class="err">' + escapeHtml("비교할 시트를 찾지 못했습니다: 국가연구개발사업, 수탁용역, 시험인증") + "</div>";
+      diffResult = null; renderDiff(); return;
+    }
+    if (missing.length) errBox.innerHTML = '<div class="notice">' + escapeHtml("⚠️ 비교하지 못한 시트: " + missing.join(", ")) + "</div>";
+    diffResult = { sheets };
+    renderDiff();
+  }
+
+  function cellText(v) { return v === "" || v == null ? "(빈칸)" : v; }
+  function signed(n) { return (n > 0 ? "+" : n < 0 ? "−" : "±") + fmt(Math.abs(n)); }
+
+  // 엑셀처럼 가로 표로 표시: 왼쪽에 상태·이름 고정, 바뀐 칸은 "이전(취소선) / 이후(노란색)"
+  function diffTableHtml(changes, d) {
+    let cols = d.labels.filter(l => l !== d.nameLabel);
+    if (diffCols === "changed") {
+      const hit = {};
+      changes.forEach(c => (c.cells || []).forEach(x => { hit[x.label] = true; }));
+      const only = cols.filter(l => hit[l]);
+      if (only.length) cols = only;
+    }
+    const changedCell = (x, extra) => '<td class="dc-chg' + (extra || "") + '"><span class="old">' + escapeHtml(cellText(x.before)) +
+      '</span><span class="new">' + escapeHtml(cellText(x.after)) + "</span></td>";
+    // 머리글 2줄 (엑셀의 병합 머리글처럼): "당해년도 사업비 · 인건비/간접비/합계" → 윗줄에 묶음 이름, 아랫줄에 인건비·간접비·합계
+    const split = l => { const i = l.indexOf(" · "); return i < 0 ? [l, ""] : [l.slice(0, i), l.slice(i + 3)]; };
+    const thText = t => escapeHtml(t).replace(/([(\[])/g, "<wbr>$1"); // 괄호 앞에서 줄바꿈 허용
+    let r1 = '<th class="sc0" rowspan="2">상태</th><th class="sc1" rowspan="2">' + escapeHtml(d.nameLabel || "이름") +
+      '</th><th class="nowrap" rowspan="2">엑셀 행</th>', r2 = "";
+    for (let i = 0; i < cols.length;) {
+      const g = split(cols[i]);
+      if (!g[1]) { r1 += '<th rowspan="2"><div class="th-in">' + thText(g[0]) + "</div></th>"; i++; continue; }
+      const subs = [];
+      while (i < cols.length && split(cols[i])[1] && split(cols[i])[0] === g[0]) { subs.push(split(cols[i])[1]); i++; }
+      r1 += '<th class="th-group" colspan="' + subs.length + '"><div class="th-in" style="max-width:' + subs.length * 90 + 'px">' + thText(g[0]) + "</div></th>";
+      r2 += subs.map(t => '<th><div class="th-in">' + thText(t) + "</div></th>").join("");
+    }
+    let h = '<div class="diff-scroll"><table class="diff-table"><thead><tr>' + r1 + "</tr>" + (r2 ? "<tr>" + r2 + "</tr>" : "") + "</thead><tbody>";
+    changes.forEach(c => {
+      const r = c.after || c.before;
+      const tag = c.type === "mod" ? '<span class="tag tag-mod">수정</span>' + (c.moved ? '<span class="tag tag-move">이동</span>' : "")
+        : c.type === "add" ? '<span class="tag tag-add">추가</span>' : '<span class="tag tag-del">삭제</span>';
+      const rowTxt = c.type === "mod" ? "원본 " + c.before.excelRow + "<br>회신 " + c.after.excelRow
+        : c.type === "add" ? "회신 " + c.after.excelRow : "원본 " + c.before.excelRow;
+      const byLabel = {};
+      (c.cells || []).forEach(x => { byLabel[x.label] = x; });
+      h += '<tr class="' + (c.type === "mod" ? "dr-mod" : c.type === "add" ? "dr-add" : "dr-del") + '"><td class="sc0">' + tag + "</td>" +
+        (byLabel[d.nameLabel] ? changedCell(byLabel[d.nameLabel], " sc1") : '<td class="sc1">' + escapeHtml(r.name || "(이름 없음)") + "</td>") +
+        '<td class="nowrap">' + rowTxt + "</td>" +
+        cols.map(l => byLabel[l] ? changedCell(byLabel[l]) : "<td>" + escapeHtml(r.vals[l] || "") + "</td>").join("") + "</tr>";
+    });
+    return h + "</tbody></table></div>";
+  }
+
+  function renderDiff() {
+    const host = document.getElementById("diffResult");
+    if (!diffResult) { host.innerHTML = ""; return; }
+    const team = document.getElementById("diffTeam").value;
+    const before = amountsOf(diffWb.base, team), after = amountsOf(diffWb.reply, team);
+    const teamName = team === "전체" ? "전체" : team + "팀";
+    let totalB = 0, totalA = 0;
+    let cards = "";
+    const buckets = {};
+    SHEETS.forEach(s => {
+      totalB += before[s]; totalA += after[s];
+      const d = diffResult.sheets[s];
+      const bk = { mine: [], other: [], none: [] };
+      if (d) d.changes.forEach(ch => bk[diffBucket(ch, team)].push(ch));
+      buckets[s] = bk;
+      const cnt = t => bk.mine.filter(c => c.type === t).length;
+      const delta = after[s] - before[s];
+      cards += '<div class="diff-card"><h4>' + escapeHtml(s) + "</h4>" +
+        (d ? '<div class="cnt"><span>수정 <b>' + cnt("mod") + "</b></span><span>추가 <b>" + cnt("add") + "</b></span><span>삭제 <b>" + cnt("del") + "</b></span></div>" : '<div class="cnt">시트 없음</div>') +
+        '<div class="diff-amt">' + escapeHtml(teamName) + " 실적 " + fmt(before[s]) + " → <b>" + fmt(after[s]) + '</b> <span class="' + (delta > 0 ? "up" : delta < 0 ? "down" : "") + '">(' + signed(delta) + ")</span></div>" +
+        (bk.other.length ? '<div class="diff-warn">⚠️ 다른 팀 영역 변경 ' + bk.other.length + "건</div>" : "") + "</div>";
+    });
+    const td = totalA - totalB;
+    let html = '<div class="diff-total">' + escapeHtml(teamName) + " 실적 합계: " + fmt(totalB) + " → <b>" + fmt(totalA) + '</b> <span class="' + (td > 0 ? "up" : td < 0 ? "down" : "") + '">(' + signed(td) + ")</span></div>" +
+      '<div class="diff-cards">' + cards + "</div>";
+
+    // 시트 탭 + 변경 목록
+    html += '<div class="table-card"><div class="table-tabs" id="diffTabs">' + SHEETS.map(s => {
+      const n = buckets[s].mine.length;
+      return '<button data-sheet="' + s + '"' + (s === diffTab ? ' class="active"' : "") + ">" + s + " (" + n + ")</button>";
+    }).join("") + "</div>";
+    const d = diffResult.sheets[diffTab], bk = buckets[diffTab];
+    html += '<div class="diff-list">';
+    if (!d) {
+      html += '<div class="chg-meta">이 시트는 비교하지 못했습니다.</div>';
+    } else {
+      if (d.colsAdded.length || d.colsRemoved.length) {
+        html += '<div class="notice">' + escapeHtml("열 구성이 바뀌었습니다." + (d.colsAdded.length ? "\n · 추가된 열: " + d.colsAdded.join(", ") : "") + (d.colsRemoved.length ? "\n · 없어진 열: " + d.colsRemoved.join(", ") : "")) + "</div>";
+      }
+      html += '<div class="diff-colmode">열 표시: <button type="button" data-cols="all"' + (diffCols === "all" ? ' class="active"' : "") + '>전체 열</button>' +
+        '<button type="button" data-cols="changed"' + (diffCols === "changed" ? ' class="active"' : "") + ">바뀐 열만</button></div>";
+      html += bk.mine.length ? diffTableHtml(bk.mine, d) : '<div class="chg-meta">' + escapeHtml(teamName) + " 변경 사항이 없습니다.</div>";
+    }
+    html += "</div>";
+    if (bk.other.length) {
+      html += '<details class="more"><summary>⚠️ 다른 팀 영역 변경 ' + bk.other.length + "건 — 실수로 고친 것인지 확인하세요</summary>" + diffTableHtml(bk.other, d) + "</details>";
+    }
+    if (bk.none.length) {
+      html += '<details class="more"><summary>팀 미지정 행 변경 ' + bk.none.length + "건</summary>" + diffTableHtml(bk.none, d) + "</details>";
+    }
+    html += "</div>";
+    host.innerHTML = html;
+    fixDiffHeaderTops();
+  }
+
+  // 머리글이 2줄일 때 아랫줄도 위에 고정: 윗줄 높이만큼 내려서 붙임 (접혀 있던 표는 펼칠 때 다시 계산)
+  function fixDiffHeaderTops() {
+    document.querySelectorAll("#diffResult table.diff-table").forEach(t => {
+      const rows = t.tHead ? t.tHead.rows : [];
+      if (rows.length < 2) return;
+      const h = rows[0].getBoundingClientRect().height;
+      if (h) [...rows[1].cells].forEach(c => { c.style.top = h + "px"; });
+    });
+  }
+
+  // 원본·회신본 파일 선택 (버튼 또는 끌어놓기)
+  function setDiffFile(which, file) {
+    const nameEl = document.getElementById(which === "base" ? "diffBaseName" : "diffReplyName");
+    document.getElementById("diffErr").innerHTML = "";
+    if (!file || !/\.(xlsx|xls)$/i.test(file.name)) {
+      document.getElementById("diffErr").innerHTML = '<div class="err">엑셀 파일(.xlsx 또는 .xls)만 올릴 수 있습니다.</div>';
+      return;
+    }
+    nameEl.textContent = file.name;
+    readWorkbook(file).then(wb => { diffWb[which] = wb; runDiff(); }).catch(err => {
+      diffWb[which] = null;
+      document.getElementById("diffErr").innerHTML = '<div class="err">' + escapeHtml("엑셀 파일을 읽는 중 오류가 발생했습니다.\n" + (err && err.message ? err.message : err)) + "</div>";
+    });
+  }
+  [["base", "diffBase", "diffBaseBox"], ["reply", "diffReply", "diffReplyBox"]].forEach(([which, inputId, boxId]) => {
+    document.getElementById(inputId).addEventListener("change", function (e) {
+      if (e.target.files && e.target.files[0]) setDiffFile(which, e.target.files[0]);
+      e.target.value = "";
+    });
+    const box = document.getElementById(boxId);
+    box.addEventListener("dragover", function (e) { if (hasDraggedFiles(e)) { e.preventDefault(); box.classList.add("is-dragover"); } });
+    box.addEventListener("dragleave", function () { box.classList.remove("is-dragover"); });
+    box.addEventListener("drop", function (e) {
+      if (!hasDraggedFiles(e)) return;
+      e.preventDefault();
+      box.classList.remove("is-dragover");
+      if (e.dataTransfer.files[0]) setDiffFile(which, e.dataTransfer.files[0]);
+    });
+  });
+
+  document.getElementById("diffTeam").addEventListener("change", renderDiff);
+  document.getElementById("diffResult").addEventListener("toggle", fixDiffHeaderTops, true);
+  document.getElementById("diffResult").addEventListener("click", function (e) {
+    const cm = e.target.closest(".diff-colmode button[data-cols]");
+    if (cm) { diffCols = cm.getAttribute("data-cols"); renderDiff(); return; }
+    const b = e.target.closest("#diffTabs button[data-sheet]");
+    if (!b) return;
+    diffTab = b.getAttribute("data-sheet");
+    renderDiff();
+  });
+
+  // 상단 모드 전환: 실적 확인 / 변경사항 확인
+  document.getElementById("modeTabs").addEventListener("click", function (e) {
+    const b = e.target.closest("button[data-mode]");
+    if (!b) return;
+    const mode = b.getAttribute("data-mode");
+    document.querySelectorAll("#modeTabs button").forEach(x => x.classList.toggle("active", x === b));
+    document.getElementById("modeDash").style.display = mode === "dash" ? "" : "none";
+    document.getElementById("modeDiff").style.display = mode === "diff" ? "" : "none";
   });
 })();
